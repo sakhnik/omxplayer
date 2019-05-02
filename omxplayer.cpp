@@ -80,7 +80,6 @@ long              m_Amplification       = 0;
 bool              m_NativeDeinterlace   = false;
 bool              m_HWDecode            = false;
 bool              m_osd                 = true;
-bool              m_show_subtitles      = true;
 bool              m_no_keys             = false;
 std::string       m_external_subtitles_path;
 bool              m_has_external_subtitles = false;
@@ -551,7 +550,6 @@ int main(int argc, char *argv[])
   const int key_config_opt  = 0x10d;
   const int amp_opt         = 0x10e;
   const int no_osd_opt      = 0x202;
-  const int hide_subtitles_opt= 0x214;
   const int orientation_opt = 0x204;
   const int fps_opt         = 0x208;
   const int live_opt        = 0x205;
@@ -619,7 +617,6 @@ int main(int argc, char *argv[])
     { "no-boost-on-downmix", no_argument, NULL,          no_boost_on_downmix_opt },
     { "key-config",   required_argument,  NULL,          key_config_opt },
     { "no-osd",       no_argument,        NULL,          no_osd_opt },
-    { "hide-subtitles", no_argument,      NULL,          hide_subtitles_opt },
     { "no-keys",      no_argument,        NULL,          no_keys_opt },
     { "orientation",  required_argument,  NULL,          orientation_opt },
     { "fps",          required_argument,  NULL,          fps_opt },
@@ -764,9 +761,6 @@ int main(int argc, char *argv[])
         break;
       case no_osd_opt:
         m_osd = false;
-        break;
-     case hide_subtitles_opt:
-        m_show_subtitles = false;
         break;
       case no_keys_opt:
         m_no_keys = true;
@@ -1144,7 +1138,7 @@ int main(int argc, char *argv[])
       m_player_subtitles.SetUseExternalSubtitles(false);
     }
 
-   if(!m_show_subtitles || (m_subtitle_index == -1 && !m_has_external_subtitles))
+    if(m_subtitle_index == -1 && !m_has_external_subtitles)
       m_player_subtitles.SetVisible(false);
   }
 
@@ -1211,7 +1205,6 @@ int main(int argc, char *argv[])
      case KeyConfig::ACTION_CHANGE_FILE:
         FlushStreams(DVD_NOPTS_VALUE);
         m_omx_reader.Close();
-        m_show_subtitles = m_player_subtitles.GetVisible(); // current pref
         m_player_subtitles.Close();
         m_player_video.Close();
         m_player_audio.Close();
