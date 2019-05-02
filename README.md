@@ -82,6 +82,7 @@ Usage: omxplayer [OPTIONS] [FILE]
         --no-osd                Do not display status information on screen
         --no-keys               Disable keyboard input (prevents hangs for certain TTYs)
         --subtitles path        External subtitles in UTF-8 srt format
+        --hide-subtitles        Hide subtitles (shown by default if found)
         --font path             Default: /usr/share/fonts/truetype/freefont/FreeSans.ttf
         --italic-font path      Default: /usr/share/fonts/truetype/freefont/FreeSansOblique.ttf
         --font-size size        Font size in 1/1000 screen height (default: 55)
