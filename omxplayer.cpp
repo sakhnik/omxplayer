@@ -1138,7 +1138,7 @@ int main(int argc, char *argv[])
       m_player_subtitles.SetUseExternalSubtitles(false);
     }
 
-    if(m_subtitle_index == -1 && !m_has_external_subtitles)
+    if(m_subtitle_index == -1)
       m_player_subtitles.SetVisible(false);
   }
 
