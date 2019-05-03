@@ -789,6 +789,7 @@ int main(int argc, char *argv[])
       case subtitles_opt:
         m_external_subtitles_path = optarg;
         m_has_external_subtitles = true;
+        m_subtitle_index = 0;
         break;
       case lines_opt:
         m_subtitle_lines = std::max(atoi(optarg), 1);
