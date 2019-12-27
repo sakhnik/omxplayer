@@ -968,6 +968,8 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  DISPLAY_TEXT_LONG("Loading...");
+
   if(!m_has_external_subtitles && !filename_is_URL)
   {
     auto subtitles_path = m_filename.substr(0, m_filename.find_last_of(".")) +
@@ -1451,20 +1453,14 @@ int main(int argc, char *argv[])
           break;
       case KeyConfig::ACTION_PLAY:
         m_Pause=false;
-        if(m_has_subtitle)
-        {
-          m_player_subtitles.Resume();
-        }
-        break;
+        goto play_pause;
       case KeyConfig::ACTION_PAUSE:
         m_Pause=true;
-        if(m_has_subtitle)
-        {
-          m_player_subtitles.Pause();
-        }
-        break;
+        goto play_pause;
       case KeyConfig::ACTION_PLAYPAUSE:
         m_Pause = !m_Pause;
+
+        play_pause:
         if (m_av_clock->OMXPlaySpeed() != DVD_PLAYSPEED_NORMAL && m_av_clock->OMXPlaySpeed() != DVD_PLAYSPEED_PAUSE)
         {
           printf("resume\n");
@@ -1833,11 +1829,8 @@ do_exit:
   if (m_stats)
     printf("\n");
 
-  if (m_stop)
-  {
     unsigned t = (unsigned)(m_av_clock->OMXMediaTime()*1e-6);
     printf("Stopped at: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
-  }
 
   if (m_NativeDeinterlace)
   {
