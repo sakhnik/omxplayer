@@ -1829,8 +1829,8 @@ do_exit:
   if (m_stats)
     printf("\n");
 
-    unsigned t = (unsigned)(m_av_clock->OMXMediaTime()*1e-6);
-    printf("Stopped at: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
+  unsigned t = (unsigned)(m_av_clock->OMXMediaTime()*1e-6);
+  printf("Stopped at: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
 
   if (m_NativeDeinterlace)
   {
