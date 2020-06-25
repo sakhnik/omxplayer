@@ -1036,6 +1036,32 @@ int main(int argc, char *argv[])
   if (m_dump_format_exit)
     goto do_exit;
 
+  // auto select an audio stream
+  // Avoid defaulting to narrative description
+  if(m_audio_index_use == 0)
+  {
+    int audiostreamcount = m_omx_reader.AudioStreamCount();
+
+    if(audiostreamcount > 1)
+    {
+      for(int i=0; i < audiostreamcount; i++)
+      {
+        std::string lang = m_omx_reader.GetStreamLanguage(OMXSTREAM_AUDIO, i);
+
+        if(lang == "NAR")
+        {
+          printf("Avoiding audio description stream: %d\n", i + 1);
+        }
+        else
+        {
+          printf("Selecting audio stream: %d\n", i + 1);
+          m_audio_index_use = i + 1; // variable expects natural numbers
+          break;
+        }
+      }
+    }
+  }
+
   m_has_video     = m_omx_reader.VideoStreamCount();
   m_has_audio     = m_audio_index_use < 0 ? false : m_omx_reader.AudioStreamCount();
   m_has_subtitle  = !is_model_pi4() && !is_fkms_active() &&
