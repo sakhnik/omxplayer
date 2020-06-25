@@ -970,7 +970,7 @@ int main(int argc, char *argv[])
 
   DISPLAY_TEXT_LONG("Loading...");
 
-  if(!m_has_external_subtitles && !filename_is_URL)
+  if(m_osd && !m_has_external_subtitles && !filename_is_URL)
   {
     auto subtitles_path = m_filename.substr(0, m_filename.find_last_of(".")) +
                           ".srt";
