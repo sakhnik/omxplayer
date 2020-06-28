@@ -120,20 +120,7 @@ enum{ERROR=-1,SUCCESS,ONEBYTE};
 
 void sig_handler(int s)
 {
-  if (s==SIGINT && !g_abort)
-  {
-     signal(SIGINT, SIG_DFL);
-     g_abort = true;
-     return;
-  }
-  signal(SIGABRT, SIG_DFL);
-  signal(SIGSEGV, SIG_DFL);
-  signal(SIGFPE, SIG_DFL);
-  if (NULL != m_keyboard)
-  {
-     m_keyboard->Close();
-  }
-  abort();
+  g_abort = true;
 }
 
 void print_usage()
@@ -496,10 +483,8 @@ static void blank_background(uint32_t rgba)
 
 int main(int argc, char *argv[])
 {
-  signal(SIGSEGV, sig_handler);
-  signal(SIGABRT, sig_handler);
-  signal(SIGFPE, sig_handler);
   signal(SIGINT, sig_handler);
+  signal(SIGTERM, sig_handler);
 
   bool                  m_send_eos            = false;
   bool                  m_packet_after_seek   = false;
@@ -1856,7 +1841,9 @@ do_exit:
     printf("\n");
 
   unsigned t = (unsigned)(m_av_clock->OMXMediaTime()*1e-6);
+  auto dur = m_omx_reader.GetStreamLength() / 1000;
   printf("Stopped at: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
+  printf("  Duration: %02d:%02d:%02d\n", (dur/3600), (dur/60)%60, dur%60);
 
   if (m_NativeDeinterlace)
   {
@@ -1898,12 +1885,19 @@ do_exit:
 
   printf("have a nice day ;)\n");
 
-  // exit status success on playback end
-  if (m_send_eos)
-    return EXIT_SUCCESS;
   // exit status OMXPlayer defined value on user quit
-  if (m_stop)
+  // (including a stop caused by SIGTERM or SIGINT)
+  if (m_stop || g_abort) {
+    puts("Stopped before end of file");
     return 3;
+  }
+
+  // exit status success on playback end
+  if (m_send_eos) {
+    puts("Reached end of file");
+    return EXIT_SUCCESS;
+  }
+
   // exit status failure on other cases
   return EXIT_FAILURE;
 }
