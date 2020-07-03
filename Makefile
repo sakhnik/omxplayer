@@ -39,6 +39,8 @@ SRC=		linux/XMemUtils.cpp \
 		Keyboard.cpp \
 		omxplayer.cpp \
 		revision.cpp \
+		AutoPlaylist.cpp \
+		RecentFileStore.cpp
 
 OBJS+=$(filter %.o,$(SRC:.cpp=.o))
 

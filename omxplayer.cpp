@@ -59,6 +59,8 @@ extern "C" {
 #include "KeyConfig.h"
 #include "utils/Strprintf.h"
 #include "Keyboard.h"
+#include "AutoPlaylist.h"
+#include "RecentFileStore.h"
 
 #include <string>
 #include <utility>
@@ -115,6 +117,9 @@ bool              m_has_audio           = false;
 bool              m_has_subtitle        = false;
 bool              m_gen_log             = false;
 bool              m_loop                = false;
+RecentFileStore   m_store;
+AutoPlaylist      m_playlist;
+bool              m_firstfile           = true;
 
 enum{ERROR=-1,SUCCESS,ONEBYTE};
 
@@ -927,12 +932,35 @@ int main(int argc, char *argv[])
     printf("File \"%s\" not found.\n", path.c_str());
   };
 
-  bool filename_is_URL = IsURL(m_filename);
-
-  if(!filename_is_URL && !IsPipe(m_filename) && !Exists(m_filename))
+  if(!IsURL(m_filename) && !IsPipe(m_filename))
   {
-    PrintFileNotFound(m_filename);
-    return EXIT_FAILURE;
+    if(!Exists(m_filename))
+    {
+      PrintFileNotFound(m_font_path);
+      return EXIT_FAILURE;
+    }
+
+    // get realpath for file
+    char *fp;
+    fp = realpath(m_filename.c_str(), NULL);
+    if(fp == NULL)
+    {
+      printf("Faile to get realpath for \"%s\".\n", m_filename.c_str());
+      return EXIT_FAILURE;
+    }
+    m_filename = fp;
+    free(fp);
+
+    // check if this is a "link" in the recent file folder
+    m_store.checkIfRecentFile(m_filename);
+
+    // make a playlist
+    m_playlist.readPlaylist(m_filename);
+
+	// find seek position
+    if(m_incr == 0) {
+      m_incr = m_store.getTime(m_filename);
+    }
   }
 
   if(m_asked_for_font && !Exists(m_font_path))
@@ -955,29 +983,6 @@ int main(int argc, char *argv[])
 
   DISPLAY_TEXT_LONG("Loading...");
 
-  if(m_osd && !m_has_external_subtitles && !filename_is_URL)
-  {
-    auto subtitles_path = m_filename.substr(0, m_filename.find_last_of(".")) +
-                          ".srt";
-
-    if(Exists(subtitles_path))
-    {
-      m_external_subtitles_path = subtitles_path;
-      m_has_external_subtitles = true;
-    }
-  }
-    
-  bool m_audio_extension = false;
-  const CStdString m_musicExtensions = ".nsv|.m4a|.flac|.aac|.strm|.pls|.rm|.rma|.mpa|.wav|.wma|.ogg|.mp3|.mp2|.m3u|.mod|.amf|.669|.dmf|.dsm|.far|.gdm|"
-                 ".imf|.it|.m15|.med|.okt|.s3m|.stm|.sfx|.ult|.uni|.xm|.sid|.ac3|.dts|.cue|.aif|.aiff|.wpl|.ape|.mac|.mpc|.mp+|.mpp|.shn|.zip|.rar|"
-                 ".wv|.nsf|.spc|.gym|.adx|.dsp|.adp|.ymf|.ast|.afc|.hps|.xsp|.xwav|.waa|.wvs|.wam|.gcm|.idsp|.mpdsp|.mss|.spt|.rsd|.mid|.kar|.sap|"
-                 ".cmc|.cmr|.dmc|.mpt|.mpd|.rmt|.tmc|.tm8|.tm2|.oga|.url|.pxml|.tta|.rss|.cm3|.cms|.dlt|.brstm|.mka";
-  if (m_filename.find_last_of(".") != string::npos)
-  {
-    CStdString extension = m_filename.substr(m_filename.find_last_of("."));
-    if (!extension.IsEmpty() && m_musicExtensions.Find(extension.ToLower()) != -1)
-      m_audio_extension = true;
-  }
   if(m_gen_log) {
     CLog::SetLogLevel(LOG_LEVEL_DEBUG);
     CLog::Init("./");
@@ -1015,11 +1020,37 @@ int main(int argc, char *argv[])
 
   change_file:
 
+  if(m_osd && !m_has_external_subtitles && !IsURL(m_filename))
+  {
+    auto subtitles_path = m_filename.substr(0, m_filename.find_last_of(".")) +
+                          ".srt";
+
+    if(Exists(subtitles_path))
+    {
+      m_external_subtitles_path = subtitles_path;
+      m_has_external_subtitles = true;
+    }
+  }
+
+  bool m_audio_extension = false;
+  const CStdString m_musicExtensions = ".nsv|.m4a|.flac|.aac|.strm|.pls|.rm|.rma|.mpa|.wav|.wma|.ogg|.mp3|.mp2|.m3u|.mod|.amf|.669|.dmf|.dsm|.far|.gdm|"
+                 ".imf|.it|.m15|.med|.okt|.s3m|.stm|.sfx|.ult|.uni|.xm|.sid|.ac3|.dts|.cue|.aif|.aiff|.wpl|.ape|.mac|.mpc|.mp+|.mpp|.shn|.zip|.rar|"
+                 ".wv|.nsf|.spc|.gym|.adx|.dsp|.adp|.ymf|.ast|.afc|.hps|.xsp|.xwav|.waa|.wvs|.wam|.gcm|.idsp|.mpdsp|.mss|.spt|.rsd|.mid|.kar|.sap|"
+                 ".cmc|.cmr|.dmc|.mpt|.mpd|.rmt|.tmc|.tm8|.tm2|.oga|.url|.pxml|.tta|.rss|.cm3|.cms|.dlt|.brstm|.mka";
+  if (m_filename.find_last_of(".") != string::npos)
+  {
+    CStdString extension = m_filename.substr(m_filename.find_last_of("."));
+    if (!extension.IsEmpty() && m_musicExtensions.Find(extension.ToLower()) != -1)
+      m_audio_extension = true;
+  }
+
   if(!m_omx_reader.Open(m_filename.c_str(), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie.c_str(), m_user_agent.c_str(), m_lavfdopts.c_str(), m_avdict.c_str()))
     goto do_exit;
 
   if (m_dump_format_exit)
     goto do_exit;
+
+  printf("Playing: %s\n", m_filename.c_str());
 
   // auto select an audio stream
   // Avoid defaulting to narrative description
@@ -1195,6 +1226,9 @@ int main(int argc, char *argv[])
   m_av_clock->OMXReset(m_has_video, m_has_audio);
   m_av_clock->OMXStateExecute();
   sentStarted = true;
+
+  // forget seek time fo all files being played
+  m_store.forget(m_filename);
 
   while(!m_stop)
   {
@@ -1845,6 +1879,27 @@ do_exit:
   printf("Stopped at: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
   printf("  Duration: %02d:%02d:%02d\n", (dur/3600), (dur/60)%60, dur%60);
 
+  // close stuff relative to a specific file
+  FlushStreams(DVD_NOPTS_VALUE);
+  m_omx_reader.Close();
+  m_player_subtitles.Close();
+  m_player_video.Close();
+  m_player_audio.Close();
+
+  // stop seeking
+  m_seek_flush = false;
+  m_incr = 0;
+
+  if(!m_stop && !g_abort && m_send_eos) {
+    //play next file in playlist if there is one...
+    if(m_playlist.getNextFile(m_filename)) {
+      m_firstfile = false;
+      goto change_file;
+    }
+  } else if(!m_firstfile || t > 5) {
+    m_store.remember(m_filename, (int)t);
+  }
+
   if (m_NativeDeinterlace)
   {
     char response[80];
@@ -1858,30 +1913,23 @@ do_exit:
   m_av_clock->OMXStop();
   m_av_clock->OMXStateIdle();
 
-  m_player_subtitles.Close();
-  m_player_video.Close();
-  m_player_audio.Close();
+  m_av_clock->OMXDeinitialize();
+  if (m_av_clock)
+    delete m_av_clock;
+
+  // not playing anything else, so shutdown
   if (NULL != m_keyboard)
   {
     m_keyboard->Close();
   }
 
-  if(m_omx_pkt)
-  {
-    m_omx_reader.FreePacket(m_omx_pkt);
-    m_omx_pkt = NULL;
-  }
-
-  m_omx_reader.Close();
-
-  m_av_clock->OMXDeinitialize();
-  if (m_av_clock)
-    delete m_av_clock;
-
   vc_tv_show_info(0);
 
   g_OMX.Deinitialize();
   g_RBP.Deinitialize();
+
+  // save recent files
+  m_store.saveStore();
 
   printf("have a nice day ;)\n");
 
