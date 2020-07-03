@@ -30,6 +30,7 @@
 #include <queue>
 
 #include "OMXStreamInfo.h"
+#include "OMXDvdPlayer.h"
 
 #include "File.h"
 
@@ -128,6 +129,8 @@ protected:
   void UnLock();
   bool SetActiveStreamInternal(OMXStreamType type, unsigned int index);
   bool                      m_seek;
+  unique_ptr<OMXDvdPlayer>  m_DvdPlayer;
+
 private:
 public:
   OMXReader();
