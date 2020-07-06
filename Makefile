@@ -45,7 +45,7 @@ SRC=		linux/XMemUtils.cpp \
 
 OBJS+=$(filter %.o,$(SRC:.cpp=.o))
 
-all: dist
+all: omxplayer.bin omxplayer.1
 
 %.o: %.cpp
 	@rm -f $@ 
@@ -75,17 +75,18 @@ omxplayer.1: README.md
 
 clean:
 	for i in $(OBJS); do (if test -e "$$i"; then ( rm $$i ); fi ); done
-	@rm -f omxplayer.old.log omxplayer.log
-	@rm -f omxplayer.bin
-	@rm -rf $(DIST)
-	@rm -f omxplayer-dist.tar.gz
+	rm -f omxplayer.old.log omxplayer.log
+	rm -f omxplayer.bin
+	rm -rf $(DIST)
+	rm -f omxplayer-dist.tgz
+	rm -f version.h MAN omxplayer.1
 
 ffmpeg:
 	@rm -rf ffmpeg
 	make -f Makefile.ffmpeg
 	make -f Makefile.ffmpeg install
 
-dist: omxplayer.bin omxplayer.1
+dist:
 	mkdir -p $(DIST)/usr/lib/omxplayer
 	mkdir -p $(DIST)/usr/bin
 	mkdir -p $(DIST)/usr/share/doc/omxplayer
@@ -98,7 +99,11 @@ dist: omxplayer.bin omxplayer.1
 	cd $(DIST); tar -czf ../$(DIST).tgz *
 
 install:
-	cp -r $(DIST)/* /
+	cp omxplayer omxplayer.bin /usr/bin
+	cp COPYING /usr/share/doc/omxplayer
+	cp README.md /usr/share/doc/omxplayer/README
+	cp omxplayer.1 /usr/share/man/man1
+	cp -P ffmpeg_compiled/usr/local/lib/*.so* /usr/lib/omxplayer/
 
 uninstall:
 	rm -rf /usr/bin/omxplayer
