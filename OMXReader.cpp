@@ -111,10 +111,20 @@ static int interrupt_cb(void *unused)
   return ret;
 }
 
-static int dvdnav_file_read(void *h, uint8_t* buf, int size)
+static int dvdread_file_read(void *h, uint8_t* buf, int size)
 {
+  RESET_TIMEOUT(1);
+  if(interrupt_cb(NULL))
+    return -1;
+
   OMXDvdPlayer *reader =(OMXDvdPlayer*) h;
-  int ret = reader->Read(buf,size);
+  int ret = reader->Read(buf, size);
+
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58,12,100)
+  if (ret == 0 && pFile->IsEOF())
+    ret = AVERROR_EOF;
+#endif
+
   return ret;
 }
 
@@ -146,6 +156,19 @@ static offset_t dvd_file_seek(void *h, offset_t pos, int whence)
     return pFile->GetLength();
   else
     return pFile->Seek(pos, whence & ~AVSEEK_FORCE);
+}
+
+static offset_t dvdread_file_seek(void *h, offset_t pos, int whence)
+{
+  RESET_TIMEOUT(1);
+  if(interrupt_cb(NULL))
+    return -1;
+
+  OMXDvdPlayer *reader =(OMXDvdPlayer*) h;
+  if(whence == AVSEEK_SIZE)
+    return reader->GetLength();
+  else
+    return reader->Seek(pos, whence);
 }
 
 bool OMXReader::Open(std::string filename, bool dump_format, bool live /* =false */, float timeout /* = 0.0f */, std::string cookie /* = "" */, std::string user_agent /* = "" */, std::string lavfdopts /* = "" */, std::string avdict /* = "" */)
@@ -206,16 +229,28 @@ bool OMXReader::Open(std::string filename, bool dump_format, bool live /* =false
   if(m_filename.substr(0, 8) == "shout://" )
     m_filename.replace(0, 8, "http://");
 
-  if(m_filename.substr(0,6) == "dvd://" )
+  bool isDVD = false;
+  std::string dvdFilename;
+  if(m_filename.substr(0,6) == "dvd://")
   {
-    std::string dvdFilename=m_filename.substr(6,m_filename.size());
+    isDVD = true;
+    dvdFilename = m_filename.substr(6, m_filename.size());
+  }
+  else if(m_filename.substr(m_filename.size()-4,4) == ".iso" || m_filename.substr(m_filename.size()-4,4) == ".dmg")
+  {
+    isDVD = true;
+    dvdFilename = m_filename;
+  }
+
+  if(isDVD)
+  {
     CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", dvdFilename.c_str());
     unique_ptr<OMXDvdPlayer> newDvdPlayer ( new OMXDvdPlayer(dvdFilename));
     m_DvdPlayer = std::move(newDvdPlayer);
-    buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
-    m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, &*m_DvdPlayer, dvdnav_file_read, NULL, NULL);
+    m_DvdPlayer->OpenTrack(0);
 
-    m_ioContext->seekable = 0; // seek should be done by the dvdnav library
+    buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
+    m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, &*m_DvdPlayer, dvdread_file_read, NULL, dvdread_file_seek);
 
     m_dllAvFormat.av_probe_input_buffer(m_ioContext, &iformat, m_filename.c_str(), NULL, 0, 0);
 
@@ -1232,6 +1267,9 @@ int OMXReader::GetStreamLength()
 {
   if (!m_pFormatContext)
     return 0;
+
+  if(m_DvdPlayer)
+    return (int)(m_DvdPlayer->getCurrentTrackLength() / (AV_TIME_BASE / 1000));
 
   return (int)(m_pFormatContext->duration / (AV_TIME_BASE / 1000));
 }

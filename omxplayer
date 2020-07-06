@@ -3,7 +3,13 @@
 # OMXPlayer launcher script.
 #
 
-OMXPLAYER_DIR=`dirname $0`
+if [ -L "$0" ]; then
+    OMXPLAYER_BASH=`readlink $0`
+    OMXPLAYER_DIR=`dirname $OMXPLAYER_BASH`
+else
+	OMXPLAYER_DIR=`dirname $0`
+fi
+
 OMXPLAYER_BIN="$OMXPLAYER_DIR/omxplayer.bin"
 OMXPLAYER_LIBS="/opt/vc/lib"
 

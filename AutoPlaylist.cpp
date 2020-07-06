@@ -48,7 +48,9 @@ void AutoPlaylist::readPlaylist(string &filename)
 	// re for filename match
 	CRegExp *fnameext_match;
 	fnameext_match = new CRegExp(true);
-	fnameext_match->RegComp("\\.(3g2|3gp|amv|asf|avi|drc|f4a|f4b|f4p|f4v|flv|m2ts|m2v|m4p|m4v|mkv|mov|mp2|mp4|mpe|mpeg|mpg|mpv|mts|mxf|nsv|ogg|ogv|qt|rm|rmvb|roq|svi|ts|vob|webm|wmv|yuv)$");
+	fnameext_match->RegComp("\\.(3g2|3gp|amv|asf|avi|drc|f4a|f4b|f4p|f4v|flv|"
+		"m2ts|m2v|m4p|m4v|mkv|mov|mp2|mp4|mpe|mpeg|mpg|mpv|mts|mxf|nsv|ogg|"
+		"ogv|qt|rm|rmvb|roq|svi|ts|vob|webm|wmv|yuv|iso|dmg)$");
 
 	while ((ent = readdir(dir)) != NULL) {
 		if(ent->d_type != 4 && ent->d_name[0] != '.' &&

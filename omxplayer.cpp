@@ -936,7 +936,7 @@ int main(int argc, char *argv[])
   {
     if(!Exists(m_filename))
     {
-      PrintFileNotFound(m_font_path);
+      PrintFileNotFound(m_filename);
       return EXIT_FAILURE;
     }
 
@@ -1612,7 +1612,8 @@ int main(int argc, char *argv[])
           auto dur = m_omx_reader.GetStreamLength() / 1000;
           DISPLAY_TEXT_LONG(strprintf("Seek\n%02d:%02d:%02d / %02d:%02d:%02d",
               (t/3600), (t/60)%60, t%60, (dur/3600), (dur/60)%60, dur%60));
-          printf("Seek to: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
+          printf("Seek to: %02d:%02d:%02d / %02d:%02d:%02d\n",
+              (t/3600), (t/60)%60, t%60, (dur/3600), (dur/60)%60, dur%60);
           FlushStreams(startpts);
         }
       }

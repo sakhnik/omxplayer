@@ -1,8 +1,8 @@
 /*
- * Copyright (C) 2014 by Thorsten Wilmer
+ * Copyright (C) 2020 by Michael J. Walsh
  *
- * This file is part of omxplayer, based on libdvdnav's menu.c
- * Copyright (C) 2003 by the libdvdnav project
+ * Much of this file is a slimmed down version of lsdvd by Chris Phillips
+ * and Henk Vergonet.
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,168 +22,244 @@
 
 #include "OMXDvdPlayer.h"
 #include <string.h>
-
-
-/* shall we use libdvdnav's read ahead cache? */
-#define DVD_READ_CACHE 1
-
-/* which is the default language for menus/audio/subpictures? */
-#define DVD_LANGUAGE "en"
-
+#include <dvdread/dvd_reader.h>
+#include <dvdread/ifo_read.h>
 
 
 OMXDvdPlayer::OMXDvdPlayer(std::string filename)
-: m_dvdnav(0)
-, m_open(false)
 {
-  /* open dvdnav handle */
-  if (dvdnav_open(&m_dvdnav, filename.c_str()) != DVDNAV_STATUS_OK) {
-    printf("Error on dvdnav_open\n");
-    m_open=false;
-    return;
-  }
-  /* set read ahead cache usage */
-  if (dvdnav_set_readahead_flag(m_dvdnav, DVD_READ_CACHE) != DVDNAV_STATUS_OK) {
-    printf("Error on dvdnav_set_readahead_flag: %s\n", dvdnav_err_to_string(m_dvdnav));
-    m_open=false;
-    return;
-  }
+	// Open DVD device or file
+	dvd_device = DVDOpen(filename.c_str());
+	if(!dvd_device) {
+		puts("Error on DVDOpen");
+		return;
+	}
 
+	ifo_handle_t *ifo_zero, **ifo;
 
-  /* set the language */
-  if (dvdnav_menu_language_select(m_dvdnav, DVD_LANGUAGE) != DVDNAV_STATUS_OK ||
-      dvdnav_audio_language_select(m_dvdnav, DVD_LANGUAGE) != DVDNAV_STATUS_OK ||
-      dvdnav_spu_language_select(m_dvdnav, DVD_LANGUAGE) != DVDNAV_STATUS_OK) {
-    printf("Error on setting languages: %s\n", dvdnav_err_to_string(m_dvdnav));
-    m_open=false;
-    return;
-  }
+	// open dvd meta data header
+	ifo_zero = ifoOpen(dvd_device, 0);
+	if ( !ifo_zero ) {
+		fprintf( stderr, "Can't open main ifo!\n");
+		return;
+	}
 
-  /* set the PGC positioning flag to have position information relatively to the
-   * whole feature instead of just relatively to the current chapter */
-  if (dvdnav_set_PGC_positioning_flag(m_dvdnav, 1) != DVDNAV_STATUS_OK) {
-    printf("Error on dvdnav_set_PGC_positioning_flag: %s\n", dvdnav_err_to_string(m_dvdnav));
-    m_open=false;
-    return;
-  }
+	ifo = (ifo_handle_t **)malloc((ifo_zero->vts_atrt->nr_of_vtss + 1) * sizeof(ifo_handle_t *));
 
-  
+	for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) {
+		ifo[i] = ifoOpen(dvd_device, i);
+		if ( !ifo[i] && i == 0 ) {
+			fprintf( stderr, "Can't open ifo %d!\n", i);
+			return;
+		}
+	}
 
-  
-  m_open=true;
+	int titles = ifo_zero->tt_srpt->nr_of_srpts;
+
+	dvd_info.device = filename;
+	get_title_name();
+
+	dvd_info.title_count = titles;
+	dvd_info.titles = (dvd_info::title_info *)calloc(titles, sizeof(*dvd_info.titles));
+
+	for (int j=0; j < titles; j++) {
+		int title_set_nr = ifo_zero->tt_srpt->title[j].title_set_nr;
+		int vts_ttn = ifo_zero->tt_srpt->title[j].vts_ttn;
+
+		if (!ifo[title_set_nr]->vtsi_mat) continue;
+
+		pgcit_t *vts_pgcit;
+		pgc_t *pgc;
+		vts_pgcit  = ifo[title_set_nr]->vts_pgcit;
+		pgc = vts_pgcit->pgci_srp[ifo[title_set_nr]->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1].pgc;
+
+		if(pgc->cell_playback == NULL || pgc->program_map == NULL) {
+			continue;
+		}
+
+		dvd_info.titles[j].vts = title_set_nr;
+		dvd_info.titles[j].length = dvdtime2msec(&pgc->playback_time)/1000.0;
+		dvd_info.titles[j].chapter_count = pgc->nr_of_programs;
+		int cell_count = pgc->nr_of_cells;
+
+		/* CELLS */
+		// ignore non-contiguous ends of tracks
+		dvd_info.titles[j].first_sector = pgc->cell_playback[0].first_sector;
+		int last_sector = -1;
+
+		for (int i = 0; i < cell_count - 1; i++)
+		{
+			int end = pgc->cell_playback[i].last_sector;
+			int next = pgc->cell_playback[i+1].first_sector - 1;
+			if(end != next) {
+				last_sector = end;
+				float missing_time = 0;
+				for (i++; i < cell_count; i++)
+				{
+					missing_time += dvdtime2msec(&pgc->cell_playback[i].playback_time)/1000.0;
+				}
+				dvd_info.titles[j].length -= missing_time;
+				break;
+			}
+		}
+		if(last_sector == -1) {
+			int last = cell_count - 1;
+			last_sector = pgc->cell_playback[last].last_sector;
+		}
+		dvd_info.titles[j].last_sector = last_sector;
+
+		/* CHAPTERS */
+		dvd_info.titles[j].chapters = (int *)calloc(dvd_info.titles[j].chapter_count, sizeof(*dvd_info.titles[j].chapters));
+
+		for (int i=0; i<dvd_info.titles[j].chapter_count; i++)
+		{
+			int idx = pgc->program_map[i] - 1;
+			int p = pgc->cell_playback[idx].first_sector;
+			if(p > last_sector) break;
+			dvd_info.titles[j].chapters[i] = p;
+		}
+	}
+
+	// close dvd meta data
+	for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) { ifoClose(ifo[i]);	}
+	ifoClose(ifo_zero);
 }
 
-void OMXDvdPlayer::pressButton()
+bool OMXDvdPlayer::OpenTrack(int ct)
 {
- pci_t *pci;
- pci =dvdnav_get_current_nav_pci(m_dvdnav);
- dvdnav_button_activate(m_dvdnav, pci);
+	if(m_open == true)
+		CloseTrack();
 
+	if(ct > dvd_info.title_count - 1)
+		return false;
+
+	// select track
+	current_track = ct;
+
+	// open dvd track
+	dvd_track = DVDOpenFile(dvd_device, dvd_info.titles[current_track].vts, DVD_READ_TITLE_VOBS );
+
+	if(!dvd_track) {
+		puts("Error on DVDOpenFile");
+		return false;
+	}
+
+	m_open = true;
+	return true;
 }
 
-int OMXDvdPlayer::Read(uint8_t* buf, int size)
+unsigned int OMXDvdPlayer::Read(unsigned char *lpBuf, int64_t uiBufSize)
 {
-  bool finished=false;
-  int c=0;
-  if(size % 2048 !=0)
-  {
-    printf("Error odd buffer size %d\n", size);
-    return -1;
-  }
-  int d=size/2048;
+	if(!m_open)
+		return 0;
 
-  while(!finished)
-  {
-  int result,  event, len;
-  result = dvdnav_get_next_block(m_dvdnav, buf+c*2048, &event, &len);
+	// read in blocks as int!!
+	int blocks_to_read = uiBufSize / 2048;
 
-  if (result == DVDNAV_STATUS_ERR) {
-      printf("Error getting next block: %s\n", dvdnav_err_to_string(m_dvdnav));
-      return -1;
-   }
-   
-    switch (event) {
-    case DVDNAV_BLOCK_OK:
-    {
+	int start_read_position = dvd_info.titles[current_track].first_sector + pos;
 
-      c++;
-      if(d==c)
-        return size;
-   }
-  case DVDNAV_STOP:
-      /* Playback should end here. */
-      {
-        // finished = true;
-      }
-      break;
-    case DVDNAV_STILL_FRAME:
-      /* We have reached a still frame. A real player application would wait
-       * the amount of time specified by the still's length while still handling
-       * user input to make menus and other interactive stills work.
-       * A length of 0xff means an indefinite still which has to be skipped
-       * indirectly by some user interaction. */
-      {
-        dvdnav_still_event_t *still_event = (dvdnav_still_event_t *)buf;
-        if (still_event->length < 0xff)
-          printf("Skipping %d seconds of still frame\n", still_event->length);
-        else
-          printf("Skipping indefinite length still frame\n");
-        dvdnav_still_skip(m_dvdnav);
-      }
-      break;
-    case DVDNAV_WAIT:
-      /* We have reached a point in DVD playback, where timing is critical.
-       * Player application with internal fifos can introduce state
-       * inconsistencies, because libdvdnav is always the fifo's length
-       * ahead in the stream compared to what the application sees.
-       * Such applications should wait until their fifos are empty
-       * when they receive this type of event. */
-      printf("Skipping wait condition\n");
-      dvdnav_wait_skip(m_dvdnav);
-      break;
-    case DVDNAV_HIGHLIGHT:
-      /* Player applications should inform their overlay engine to highlight the
-       * given button */
-      {
-        dvdnav_highlight_event_t *highlight_event = (dvdnav_highlight_event_t *)buf;
-        printf("Selected button %d\n", highlight_event->buttonN);
-      }
-      break;
+	if(start_read_position + blocks_to_read > dvd_info.titles[current_track].last_sector) {
+		blocks_to_read = dvd_info.titles[current_track].last_sector - start_read_position + 1;
 
+		if(blocks_to_read < 1)
+			return 0;
+	}
 
-   case DVDNAV_NAV_PACKET:
-    {
-        pci_t *pci;
-        pci = dvdnav_get_current_nav_pci(m_dvdnav);
-        dvdnav_get_current_nav_dsi(m_dvdnav);
-
-        if(pci->hli.hl_gi.btn_ns > 0) {
-          int button;
-
-          printf("Found %i DVD menu buttons...\n", pci->hli.hl_gi.btn_ns);
-
-          for (button = 0; button < pci->hli.hl_gi.btn_ns; button++) {
-            btni_t *btni = &(pci->hli.btnit[button]);
-            printf("Button %i top-left @ (%i,%i), bottom-right @ (%i,%i)\n",
-                    button + 1, btni->x_start, btni->y_start,
-                    btni->x_end, btni->y_end);
-          }
-
-          button = 0;
-	 button=1;
-          printf("Selecting button %i...\n", button);
-          /* This is the point where applications with fifos have to hand in a NAV packet
-           * which has traveled through the fifos. See the notes above. */
-          dvdnav_button_select_and_activate(m_dvdnav, pci, button);
-        }
-
-     }
-      break;
-   default:
-      printf("Not handled event yet %d\n", event);
-   }
-
-   }
-   return 0;
+	int read_blocks = DVDReadBlocks(dvd_track, start_read_position, blocks_to_read, lpBuf);
+	pos += read_blocks;
+	return read_blocks * 2048;
 }
 
+int64_t OMXDvdPlayer::getCurrentTrackLength()
+{
+	return (int64_t)(dvd_info.titles[current_track].length * 1000000);
+}
+
+int64_t OMXDvdPlayer::Seek(int64_t iFilePosition, int iWhence)
+{
+	if (!m_open)
+		return -1;
+
+	// seek in blocks
+	int seek_size = iFilePosition / 2048;
+
+	switch (iWhence) {
+		case SEEK_SET:
+			pos = seek_size;
+			break;
+		case SEEK_CUR:
+			pos += seek_size;
+			break;
+		case SEEK_END:
+			pos = dvd_info.titles[current_track].last_sector - seek_size;
+			break;
+		default:
+			return -1;
+	}
+
+	return 0;
+}
+
+int64_t OMXDvdPlayer::GetLength()
+{
+	int64_t len = dvd_info.titles[current_track].last_sector - dvd_info.titles[current_track].first_sector + 1;
+	len *= 2048;
+	return len;
+}
+
+void OMXDvdPlayer::CloseTrack()
+{
+	DVDCloseFile(dvd_track);
+	m_open = false;
+}
+
+OMXDvdPlayer::~OMXDvdPlayer()
+{
+	if(m_open == true)
+		CloseTrack();
+
+	DVDClose(dvd_device);
+}
+
+int OMXDvdPlayer::dvdtime2msec(dvd_time_t *dt)
+{
+	double fps = frames_per_s[(dt->frame_u & 0xc0) >> 6];
+	long   ms;
+	ms  = (((dt->hour &   0xf0) >> 3) * 5 + (dt->hour   & 0x0f)) * 3600000;
+	ms += (((dt->minute & 0xf0) >> 3) * 5 + (dt->minute & 0x0f)) * 60000;
+	ms += (((dt->second & 0xf0) >> 3) * 5 + (dt->second & 0x0f)) * 1000;
+
+	if(fps > 0)
+	ms += (((dt->frame_u & 0x30) >> 3) * 5 + (dt->frame_u & 0x0f)) * 1000.0 / fps;
+
+	return ms;
+}
+
+/*
+ *  The following method is based on code from vobcopy, by Robos, with thanks.
+ */
+void OMXDvdPlayer::get_title_name()
+{
+	FILE *filehandle = 0;
+	char title[33];
+	int  i;
+
+	if (! (filehandle = fopen(dvd_info.device.c_str(), "r"))) {
+		dvd_info.disc_title = "unknown";
+		return;
+	}
+
+	if ( fseek(filehandle, 32808, SEEK_SET ) || 32 != (i = fread(title, 1, 32, filehandle)) ) {
+		fclose(filehandle);
+		dvd_info.disc_title = "unknown";
+		return;
+	}
+
+	fclose (filehandle);
+
+	title[32] = '\0';
+	while(i-- > 2)
+		if(title[i] == ' ') title[i] = '\0';
+
+	dvd_info.disc_title = title;
+}
