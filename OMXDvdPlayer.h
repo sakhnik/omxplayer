@@ -17,6 +17,9 @@ class OMXDvdPlayer
 	int64_t Seek(int64_t iFilePosition, int iWhence);
 	int64_t GetLength();
 	int64_t getCurrentTrackLength();
+	int TotalChapters();
+	bool SeekChapter(int chapter);
+	int GetChapter();
 
   private:
 	int dvdtime2msec(dvd_time_t *dt);

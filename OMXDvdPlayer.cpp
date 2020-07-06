@@ -116,7 +116,7 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 			int idx = pgc->program_map[i] - 1;
 			int p = pgc->cell_playback[idx].first_sector;
 			if(p > last_sector) break;
-			dvd_info.titles[j].chapters[i] = p;
+			dvd_info.titles[j].chapters[i] = p - dvd_info.titles[j].first_sector;
 		}
 	}
 
@@ -205,6 +205,31 @@ int64_t OMXDvdPlayer::GetLength()
 	int64_t len = dvd_info.titles[current_track].last_sector - dvd_info.titles[current_track].first_sector + 1;
 	len *= 2048;
 	return len;
+}
+
+int OMXDvdPlayer::TotalChapters()
+{
+	return dvd_info.titles[current_track].chapter_count;
+}
+
+bool OMXDvdPlayer::SeekChapter(int chapter)
+{
+	chapter--;
+	pos = dvd_info.titles[current_track].chapters[chapter];
+	return true;
+}
+
+int OMXDvdPlayer::GetChapter()
+{
+	int cpos = pos;
+	int i;
+	for (i=0; i<dvd_info.titles[current_track].chapter_count-1; i++)
+	{
+		if(cpos >= dvd_info.titles[current_track].chapters[i] &&
+				cpos < dvd_info.titles[current_track].chapters[i+1])
+			return i + 1;
+	}
+	return i + 1;
 }
 
 void OMXDvdPlayer::CloseTrack()

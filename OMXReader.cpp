@@ -248,6 +248,7 @@ bool OMXReader::Open(std::string filename, bool dump_format, bool live /* =false
     unique_ptr<OMXDvdPlayer> newDvdPlayer ( new OMXDvdPlayer(dvdFilename));
     m_DvdPlayer = std::move(newDvdPlayer);
     m_DvdPlayer->OpenTrack(0);
+    m_chapter_count = m_DvdPlayer->TotalChapters();
 
     buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
     m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, &*m_DvdPlayer, dvdread_file_read, NULL, dvdread_file_seek);
@@ -748,6 +749,10 @@ bool OMXReader::GetStreams()
   if(m_subtitle_count)
     SetActiveStreamInternal(OMXSTREAM_SUBTITLE, 0);
 
+  // we deal with dvd player chapters elsewhere
+  if(m_DvdPlayer)
+    return true;
+
   int i = 0;
   for(i = 0; i < MAX_OMX_CHAPTERS; i++)
   {
@@ -1136,6 +1141,14 @@ bool OMXReader::SeekChapter(int chapter, double* startpts)
   if(chapter < 1)
     chapter = 1;
 
+  if(m_DvdPlayer)
+  {
+    if(chapter < 1 || chapter > (int)m_DvdPlayer->TotalChapters())
+      return false;
+
+    return m_DvdPlayer->SeekChapter(chapter);
+  }
+
   if(m_pFormatContext == NULL)
     return false;
 
@@ -1177,6 +1190,9 @@ double OMXReader::ConvertTimestamp(int64_t pts, int den, int num)
 
 int OMXReader::GetChapter()
 {
+  if(m_DvdPlayer)
+    return m_DvdPlayer->GetChapter();
+
   if(m_pFormatContext == NULL
   || m_iCurrentPts == DVD_NOPTS_VALUE)
     return 0;
