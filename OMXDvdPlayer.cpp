@@ -62,11 +62,15 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 	dvd_info.title_count = titles;
 	dvd_info.titles = (dvd_info::title_info *)calloc(titles, sizeof(*dvd_info.titles));
 
-	for (int j=0; j < titles; j++) {
+	for (int j=0, h=0; j < titles; j++, h++) {
 		int title_set_nr = ifo_zero->tt_srpt->title[j].title_set_nr;
 		int vts_ttn = ifo_zero->tt_srpt->title[j].vts_ttn;
 
-		if (!ifo[title_set_nr]->vtsi_mat) continue;
+		if (!ifo[title_set_nr]->vtsi_mat) {
+			h--;
+			dvd_info.title_count--;
+			continue;
+		}
 
 		pgcit_t *vts_pgcit;
 		pgc_t *pgc;
@@ -74,31 +78,31 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 		pgc = vts_pgcit->pgci_srp[ifo[title_set_nr]->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1].pgc;
 
 		if(pgc->cell_playback == NULL || pgc->program_map == NULL) {
+			h--;
+			dvd_info.title_count--;
 			continue;
 		}
 
-		dvd_info.titles[j].vts = title_set_nr;
-		dvd_info.titles[j].length = dvdtime2msec(&pgc->playback_time)/1000.0;
-		dvd_info.titles[j].chapter_count = pgc->nr_of_programs;
+		dvd_info.titles[h].vts = title_set_nr;
+		dvd_info.titles[h].length = dvdtime2msec(&pgc->playback_time)/1000.0;
+		dvd_info.titles[h].chapter_count = pgc->nr_of_programs;
 		int cell_count = pgc->nr_of_cells;
 
 		/* CELLS */
 		// ignore non-contiguous ends of tracks
-		dvd_info.titles[j].first_sector = pgc->cell_playback[0].first_sector;
+		dvd_info.titles[h].first_sector = pgc->cell_playback[0].first_sector;
 		int last_sector = -1;
 
-		for (int i = 0; i < cell_count - 1; i++)
-		{
+		for (int i = 0; i < cell_count - 1; i++) {
 			int end = pgc->cell_playback[i].last_sector;
 			int next = pgc->cell_playback[i+1].first_sector - 1;
 			if(end != next) {
 				last_sector = end;
 				float missing_time = 0;
-				for (i++; i < cell_count; i++)
-				{
+				for (i++; i < cell_count; i++){
 					missing_time += dvdtime2msec(&pgc->cell_playback[i].playback_time)/1000.0;
 				}
-				dvd_info.titles[j].length -= missing_time;
+				dvd_info.titles[h].length -= missing_time;
 				break;
 			}
 		}
@@ -106,22 +110,25 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 			int last = cell_count - 1;
 			last_sector = pgc->cell_playback[last].last_sector;
 		}
-		dvd_info.titles[j].last_sector = last_sector;
+		dvd_info.titles[h].last_sector = last_sector;
 
 		/* CHAPTERS */
-		dvd_info.titles[j].chapters = (int *)calloc(dvd_info.titles[j].chapter_count, sizeof(*dvd_info.titles[j].chapters));
+		dvd_info.titles[h].chapters = (int *)calloc(dvd_info.titles[h].chapter_count, sizeof(*dvd_info.titles[h].chapters));
 
-		for (int i=0; i<dvd_info.titles[j].chapter_count; i++)
-		{
+		for (int i=0; i<dvd_info.titles[h].chapter_count; i++) {
 			int idx = pgc->program_map[i] - 1;
 			int p = pgc->cell_playback[idx].first_sector;
-			if(p > last_sector) break;
-			dvd_info.titles[j].chapters[i] = p - dvd_info.titles[j].first_sector;
+			if(p > last_sector){
+				dvd_info.titles[h].chapter_count = i;
+				break;
+			}
+			dvd_info.titles[h].chapters[i] = p - dvd_info.titles[h].first_sector;
 		}
 	}
 
 	// close dvd meta data
-	for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) { ifoClose(ifo[i]);	}
+	for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) ifoClose(ifo[i]);
+	free(ifo);
 	ifoClose(ifo_zero);
 }
 
@@ -223,8 +230,7 @@ int OMXDvdPlayer::GetChapter()
 {
 	int cpos = pos;
 	int i;
-	for (i=0; i<dvd_info.titles[current_track].chapter_count-1; i++)
-	{
+	for (i=0; i<dvd_info.titles[current_track].chapter_count-1; i++) {
 		if(cpos >= dvd_info.titles[current_track].chapters[i] &&
 				cpos < dvd_info.titles[current_track].chapters[i+1])
 			return i + 1;
@@ -242,6 +248,10 @@ OMXDvdPlayer::~OMXDvdPlayer()
 {
 	if(m_open == true)
 		CloseTrack();
+
+	for (int i=0; i < dvd_info.title_count; i++)
+		free(dvd_info.titles[i].chapters);
+	free(dvd_info.titles);
 
 	DVDClose(dvd_device);
 }

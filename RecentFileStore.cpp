@@ -85,12 +85,11 @@ vector<string> RecentFileStore::getRecentFileList()
 		return recents;
 
 	// re for filename match
-	CRegExp *link_file;
-	link_file = new CRegExp(true);
-	link_file->RegComp("^[0-9]{2} - ");
+	CRegExp link_file = CRegExp(true);
+	link_file.RegComp("^[0-9]{2} - ");
 
 	while ((ent = readdir (dir)) != NULL) {
-		if(link_file->RegFind(ent->d_name, 0) > -1) {
+		if(link_file.RegFind(ent->d_name, 0) > -1) {
 			recents.push_back(recent_dir + ent->d_name);
 		}
 	}
@@ -135,13 +134,11 @@ void RecentFileStore::saveStore()
 	clearRecents();
 
 	// set up some regexes
-	CRegExp *link_file;
-	link_file = new CRegExp(true);
-	link_file->RegComp("/([^/]+)$");
+	CRegExp link_file = CRegExp(true);
+	link_file.RegComp("/([^/]+)$");
 
-	CRegExp *link_stream;
-	link_stream = new CRegExp(true);
-	link_stream->RegComp("://([^/]+)/");
+	CRegExp link_stream = CRegExp(true);
+	link_stream.RegComp("://([^/]+)/");
 
 	// create a sorted vector
 	vector<pair<string, fileInfo> > vector_store;
@@ -157,10 +154,10 @@ void RecentFileStore::saveStore()
 		if(i < 9) link += '0';
 		link += to_string(i+1) + " - ";
 
-		if(link_file->RegFind(vector_store[i].first, 0) > -1) {
-			link += link_file->GetMatch(1);
-		} else if(link_stream->RegFind(vector_store[i].first, 0) > -1) {
-			link += link_stream->GetMatch(1) + ".ts";
+		if(link_file.RegFind(vector_store[i].first, 0) > -1) {
+			link += link_file.GetMatch(1);
+		} else if(link_stream.RegFind(vector_store[i].first, 0) > -1) {
+			link += link_stream.GetMatch(1) + ".ts";
 		} else {
 			link += "stream.ts";
 		}

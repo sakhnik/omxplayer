@@ -245,8 +245,7 @@ bool OMXReader::Open(std::string filename, bool dump_format, bool live /* =false
   if(isDVD)
   {
     CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", dvdFilename.c_str());
-    unique_ptr<OMXDvdPlayer> newDvdPlayer ( new OMXDvdPlayer(dvdFilename));
-    m_DvdPlayer = std::move(newDvdPlayer);
+    m_DvdPlayer = new OMXDvdPlayer(dvdFilename);
     m_DvdPlayer->OpenTrack(0);
     m_chapter_count = m_DvdPlayer->TotalChapters();
 
@@ -440,6 +439,12 @@ void OMXReader::ClearStreams()
 
 bool OMXReader::Close()
 {
+  if(m_DvdPlayer)
+  {
+    delete m_DvdPlayer;
+    m_DvdPlayer = NULL;
+  }
+
   if (m_pFormatContext)
   {
     if (m_ioContext && m_pFormatContext->pb && m_pFormatContext->pb != m_ioContext)

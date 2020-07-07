@@ -129,7 +129,7 @@ protected:
   void UnLock();
   bool SetActiveStreamInternal(OMXStreamType type, unsigned int index);
   bool                      m_seek;
-  unique_ptr<OMXDvdPlayer>  m_DvdPlayer;
+  OMXDvdPlayer              *m_DvdPlayer;
 
 private:
 public:
