@@ -31,7 +31,7 @@ public:
 	int getTime(string &key);
 	void remember(string &key, int time);
 	void saveStore();
-	void checkIfRecentFile(string &filename);
+	bool checkIfRecentFile(string &filename);
 
 private:
 	struct fileInfo {

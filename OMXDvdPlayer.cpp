@@ -118,7 +118,7 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 		for (int i=0; i<dvd_info.titles[h].chapter_count; i++) {
 			int idx = pgc->program_map[i] - 1;
 			int p = pgc->cell_playback[idx].first_sector;
-			if(p > last_sector){
+			if(p > last_sector) {
 				dvd_info.titles[h].chapter_count = i;
 				break;
 			}
@@ -143,6 +143,9 @@ bool OMXDvdPlayer::OpenTrack(int ct)
 	// select track
 	current_track = ct;
 
+	// blocks for this track
+	total_blocks = dvd_info.titles[current_track].last_sector - dvd_info.titles[current_track].first_sector + 1;
+
 	// open dvd track
 	dvd_track = DVDOpenFile(dvd_device, dvd_info.titles[current_track].vts, DVD_READ_TITLE_VOBS );
 
@@ -155,24 +158,22 @@ bool OMXDvdPlayer::OpenTrack(int ct)
 	return true;
 }
 
-unsigned int OMXDvdPlayer::Read(unsigned char *lpBuf, int64_t uiBufSize)
+int OMXDvdPlayer::Read(unsigned char *lpBuf, int64_t uiBufSize)
 {
 	if(!m_open)
 		return 0;
 
-	// read in blocks as int!!
+	// read in block in whole numbers
 	int blocks_to_read = uiBufSize / 2048;
 
-	int start_read_position = dvd_info.titles[current_track].first_sector + pos;
-
-	if(start_read_position + blocks_to_read > dvd_info.titles[current_track].last_sector) {
-		blocks_to_read = dvd_info.titles[current_track].last_sector - start_read_position + 1;
+	if(pos + blocks_to_read > total_blocks) {
+		blocks_to_read = total_blocks - pos;
 
 		if(blocks_to_read < 1)
 			return 0;
 	}
 
-	int read_blocks = DVDReadBlocks(dvd_track, start_read_position, blocks_to_read, lpBuf);
+	int read_blocks = DVDReadBlocks(dvd_track, dvd_info.titles[current_track].first_sector + pos, blocks_to_read, lpBuf);
 	pos += read_blocks;
 	return read_blocks * 2048;
 }
@@ -198,7 +199,7 @@ int64_t OMXDvdPlayer::Seek(int64_t iFilePosition, int iWhence)
 			pos += seek_size;
 			break;
 		case SEEK_END:
-			pos = dvd_info.titles[current_track].last_sector - seek_size;
+			pos = total_blocks - seek_size;
 			break;
 		default:
 			return -1;
@@ -221,9 +222,14 @@ int OMXDvdPlayer::TotalChapters()
 
 bool OMXDvdPlayer::SeekChapter(int chapter)
 {
-	chapter--;
-	pos = dvd_info.titles[current_track].chapters[chapter];
-	return true;
+	// seeking next chapter from last causes eof
+	if(chapter > dvd_info.titles[current_track].chapter_count) {
+		pos = total_blocks;
+		return false;
+	} else {
+		pos = dvd_info.titles[current_track].chapters[chapter-1];
+		return true;
+	}
 }
 
 int OMXDvdPlayer::GetChapter()

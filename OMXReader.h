@@ -135,7 +135,9 @@ private:
 public:
   OMXReader();
   ~OMXReader();
-  bool Open(std::string filename, bool dump_format, bool live = false, float timeout = 0.0f, std::string cookie = "", std::string user_agent = "", std::string lavfdopts = "", std::string avdict = "");
+  bool Open(std::string filename, bool dump_format, bool live, float timeout,
+    std::string cookie, std::string user_agent, std::string lavfdopts, std::string avdict,
+    bool isDVD, int dvd_track);
   void ClearStreams();
   bool Close();
   //void FlushRead();
@@ -169,6 +171,7 @@ public:
   int GetChapter();
   void GetChapterName(std::string& strChapterName);
   bool SeekChapter(int chapter, double* startpts);
+  bool SeekNextTrack();
   int GetAudioIndex() { return (m_audio_index >= 0) ? m_streams[m_audio_index].index : -1; };
   int GetSubtitleIndex() { return (m_subtitle_index >= 0) ? m_streams[m_subtitle_index].index : -1; };
   int GetVideoIndex() { return (m_video_index >= 0) ? m_streams[m_video_index].index : -1; };

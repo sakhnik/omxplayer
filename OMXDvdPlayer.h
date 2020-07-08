@@ -13,13 +13,14 @@ class OMXDvdPlayer
 	void CloseTrack();
 	bool OpenTrack(int ct);
 
-	unsigned int Read(unsigned char *lpBuf, int64_t uiBufSize);
+	int Read(unsigned char *lpBuf, int64_t uiBufSize);
 	int64_t Seek(int64_t iFilePosition, int iWhence);
 	int64_t GetLength();
 	int64_t getCurrentTrackLength();
 	int TotalChapters();
 	bool SeekChapter(int chapter);
 	int GetChapter();
+	int GetCurrentTrack() const { return current_track; }
 
   private:
 	int dvdtime2msec(dvd_time_t *dt);
@@ -31,6 +32,7 @@ class OMXDvdPlayer
 	dvd_file_t *dvd_track = NULL;
 
 	int current_track;
+	int total_blocks;
 
 	struct dvd_info {
 		std::string device;

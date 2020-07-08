@@ -59,6 +59,7 @@ extern "C" {
 #include "KeyConfig.h"
 #include "utils/Strprintf.h"
 #include "Keyboard.h"
+#include "utils/RegExp.h"
 #include "AutoPlaylist.h"
 #include "RecentFileStore.h"
 
@@ -496,6 +497,8 @@ int main(int argc, char *argv[])
   bool                  m_seek_flush          = false;
   bool                  m_chapter_seek        = false;
   std::string           m_filename;
+  int                   m_track               = 0;
+  bool                  m_isDVD               = false;
   double                m_incr                = 0;
   double                m_loop_from           = 0;
   CRBP                  g_RBP;
@@ -927,6 +930,18 @@ int main(int argc, char *argv[])
 
   m_filename = argv[optind];
 
+  // strip off file://
+  if(m_filename.substr(0, 7) == "file://" )
+    m_filename.replace(0, 7, "");
+
+  // a number suffix (eg ':4') on a file name indicates track no
+  CRegExp filetrack = CRegExp(true);
+  filetrack.RegComp("^(.*?):([0-9]+)$");
+  if(filetrack.RegFind(m_filename, 0) > -1) {
+    m_filename = filetrack.GetMatch(1);
+    m_track = stoi(filetrack.GetMatch(2));
+  }
+
   auto PrintFileNotFound = [](const std::string& path)
   {
     printf("File \"%s\" not found.\n", path.c_str());
@@ -945,17 +960,33 @@ int main(int argc, char *argv[])
     fp = realpath(m_filename.c_str(), NULL);
     if(fp == NULL)
     {
-      printf("Faile to get realpath for \"%s\".\n", m_filename.c_str());
+      printf("Failed to get realpath for \"%s\".\n", m_filename.c_str());
       return EXIT_FAILURE;
     }
     m_filename = fp;
     free(fp);
 
     // check if this is a "link" in the recent file folder
-    m_store.checkIfRecentFile(m_filename);
+    // if it's a file check it exists
+    if(m_store.checkIfRecentFile(m_filename) && !IsURL(m_filename) && !IsPipe(m_filename)
+        && !Exists(m_filename)) {
+      PrintFileNotFound(m_filename);
+      return EXIT_FAILURE;
+    }
 
-    // make a playlist
-    m_playlist.readPlaylist(m_filename);
+    // Are we dealing with a DVD VIDEO_TS folder
+    CRegExp findvideots = CRegExp(true);
+    findvideots.RegComp("^(.*?/VIDEO_TS)");
+    if(findvideots.RegFind(m_filename, 0) > -1)
+    {
+      m_isDVD = true;
+      m_filename = findvideots.GetMatch(1);
+    }
+    else
+    {
+      // make a playlist
+      m_playlist.readPlaylist(m_filename);
+    }
 
 	// find seek position
     if(m_incr == 0) {
@@ -1020,7 +1051,11 @@ int main(int argc, char *argv[])
 
   change_file:
 
-  if(m_osd && !m_has_external_subtitles && !IsURL(m_filename))
+  if(m_filename.substr(m_filename.size()-4, 4) == ".iso"
+	  || m_filename.substr(m_filename.size()-4, 4) == ".dmg")
+	m_isDVD = true;
+
+  if(m_osd && !m_isDVD && !m_has_external_subtitles && !IsURL(m_filename))
   {
     auto subtitles_path = m_filename.substr(0, m_filename.find_last_of(".")) +
                           ".srt";
@@ -1044,13 +1079,18 @@ int main(int argc, char *argv[])
       m_audio_extension = true;
   }
 
-  if(!m_omx_reader.Open(m_filename.c_str(), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie.c_str(), m_user_agent.c_str(), m_lavfdopts.c_str(), m_avdict.c_str()))
+  if(!m_omx_reader.Open(m_filename.c_str(), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie.c_str(), m_user_agent.c_str(), m_lavfdopts.c_str(), m_avdict.c_str(), m_isDVD, m_track))
     goto do_exit;
 
   if (m_dump_format_exit)
     goto do_exit;
 
-  printf("Playing: %s\n", m_filename.c_str());
+  change_track:
+
+  if(m_isDVD)
+    printf("Playing: %s, Track: %d\n", m_filename.c_str(), m_track + 1);
+  else
+    printf("Playing: %s\n", m_filename.c_str());
 
   // auto select an audio stream
   // Avoid defaulting to narrative description
@@ -1237,6 +1277,7 @@ int main(int argc, char *argv[])
 
     double now = m_av_clock->GetAbsoluteClock();
     bool update = false;
+    m_chapter_seek = false;
     if (m_last_check_time == 0.0 || m_last_check_time + DVD_MSEC_TO_TIME(20) <= now) 
     {
       update = true;
@@ -1880,8 +1921,17 @@ do_exit:
   printf("Stopped at: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
   printf("  Duration: %02d:%02d:%02d\n", (dur/3600), (dur/60)%60, dur%60);
 
-  // close stuff relative to a specific file
+  // flush streams
   FlushStreams(DVD_NOPTS_VALUE);
+
+  // if this is a DVD look to next track
+  if(m_isDVD && !m_stop && !g_abort && m_send_eos) {
+    if(m_omx_reader.SeekNextTrack())
+      goto change_track;
+    m_isDVD = false;
+  }
+
+  // close stuff relative to a specific file
   m_omx_reader.Close();
   m_player_subtitles.Close();
   m_player_video.Close();

@@ -171,7 +171,17 @@ static offset_t dvdread_file_seek(void *h, offset_t pos, int whence)
     return reader->Seek(pos, whence);
 }
 
-bool OMXReader::Open(std::string filename, bool dump_format, bool live /* =false */, float timeout /* = 0.0f */, std::string cookie /* = "" */, std::string user_agent /* = "" */, std::string lavfdopts /* = "" */, std::string avdict /* = "" */)
+bool OMXReader::Open(
+	std::string filename,
+	bool dump_format,
+	bool live,
+	float timeout,
+	std::string cookie,
+	std::string user_agent,
+	std::string lavfdopts,
+	std::string avdict,
+	bool isDVD,
+	int dvd_track)
 {
   if (!m_dllAvUtil.Load() || !m_dllAvCodec.Load() || !m_dllAvFormat.Load())
     return false;
@@ -222,31 +232,14 @@ bool OMXReader::Open(std::string filename, bool dump_format, bool live /* =false
   // if format can be nonblocking, let's use that
   m_pFormatContext->flags |= AVFMT_FLAG_NONBLOCK;
 
-  // strip off file://
-  if(m_filename.substr(0, 7) == "file://" )
-    m_filename.replace(0, 7, "");
-
   if(m_filename.substr(0, 8) == "shout://" )
     m_filename.replace(0, 8, "http://");
 
-  bool isDVD = false;
-  std::string dvdFilename;
-  if(m_filename.substr(0,6) == "dvd://")
-  {
-    isDVD = true;
-    dvdFilename = m_filename.substr(6, m_filename.size());
-  }
-  else if(m_filename.substr(m_filename.size()-4,4) == ".iso" || m_filename.substr(m_filename.size()-4,4) == ".dmg")
-  {
-    isDVD = true;
-    dvdFilename = m_filename;
-  }
-
   if(isDVD)
   {
-    CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", dvdFilename.c_str());
-    m_DvdPlayer = new OMXDvdPlayer(dvdFilename);
-    m_DvdPlayer->OpenTrack(0);
+    CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", m_filename.c_str());
+    m_DvdPlayer = new OMXDvdPlayer(m_filename);
+    m_DvdPlayer->OpenTrack(dvd_track);
     m_chapter_count = m_DvdPlayer->TotalChapters();
 
     buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
@@ -270,7 +263,8 @@ bool OMXReader::Open(std::string filename, bool dump_format, bool live /* =false
     }
   }
   else 
-  if(m_filename.substr(0,6) == "mms://" || m_filename.substr(0,7) == "mmsh://" || m_filename.substr(0,7) == "mmst://" || m_filename.substr(0,7) == "mmsu://" ||
+  if(m_filename.substr(0,6) == "mms://" || m_filename.substr(0,7) == "mmsh://" ||
+      m_filename.substr(0,7) == "mmst://" || m_filename.substr(0,7) == "mmsu://" ||
       m_filename.substr(0,7) == "http://" || m_filename.substr(0,8) == "https://" ||
       m_filename.substr(0,7) == "rtmp://" || m_filename.substr(0,6) == "udp://" ||
       m_filename.substr(0,7) == "rtsp://" || m_filename.substr(0,6) == "rtp://" ||
@@ -555,6 +549,14 @@ bool OMXReader::SeekTime(int time, bool backwords, double *startpts)
   UnLock();
 
   return (ret >= 0);
+}
+
+bool OMXReader::SeekNextTrack()
+{
+  if(!m_DvdPlayer)
+    return false;
+
+  return m_DvdPlayer->OpenTrack(m_DvdPlayer->GetCurrentTrack() + 1);
 }
 
 AVMediaType OMXReader::PacketType(OMXPacket *pkt)

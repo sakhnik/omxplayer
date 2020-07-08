@@ -60,18 +60,25 @@ RecentFileStore::RecentFileStore()
 	}
 }
 
-void RecentFileStore::checkIfRecentFile(string &filename)
+bool RecentFileStore::checkIfRecentFile(string &filename)
 {
 	if(filename.length() > recent_dir.length()
 			&& filename.substr(0, recent_dir.length()) == recent_dir) {
 		ifstream s(filename);
 
 		string uri;
-		if(getline(s, uri))
-			filename = uri;
-		else
-			filename = ""; // error
+		bool r = (bool)getline(s, uri);
 		s.close();
+		
+		if(r) {
+			filename = uri;
+			return true;
+		} else {
+			filename = ""; // error
+			return false;
+		}
+	} else {
+		return false;
 	}
 }
 
