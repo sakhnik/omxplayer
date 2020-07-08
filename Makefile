@@ -87,16 +87,14 @@ ffmpeg:
 	make -f Makefile.ffmpeg install
 
 dist:
-	mkdir -p $(DIST)/usr/lib/omxplayer
-	mkdir -p $(DIST)/usr/bin
-	mkdir -p $(DIST)/usr/share/doc/omxplayer
-	mkdir -p $(DIST)/usr/share/man/man1
-	cp omxplayer omxplayer.bin $(DIST)/usr/bin
-	cp COPYING $(DIST)/usr/share/doc/omxplayer
-	cp README.md $(DIST)/usr/share/doc/omxplayer/README
-	cp omxplayer.1 $(DIST)/usr/share/man/man1
-	cp -P ffmpeg_compiled/usr/local/lib/*.so* $(DIST)/usr/lib/omxplayer/
-	cd $(DIST); tar -czf ../$(DIST).tgz *
+	tar -cPf $(DIST).tgz \
+	--transform 's,^omxplayer$$,/usr/bin/omxplayer,S' \
+	--transform 's,^omxplayer.bin$$,/usr/bin/omxplayer.bin,S' \
+	--transform 's,^COPYING$$,/usr/share/doc/omxplayer/COPYING,S' \
+	--transform 's,^README.md$$,/usr/share/doc/omxplayer/README,S' \
+	--transform 's,^omxplayer.1$$,/usr/share/man/man1/omxplayer.1,S' \
+	--transform 's,^ffmpeg_compiled/usr/local/lib/,/usr/lib/omxplayer/,S' \
+	omxplayer omxplayer.bin COPYING README.md omxplayer.1 ffmpeg_compiled/usr/local/lib/*.so*
 
 install:
 	cp omxplayer omxplayer.bin /usr/bin
