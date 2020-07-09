@@ -180,8 +180,7 @@ bool OMXReader::Open(
 	std::string user_agent,
 	std::string lavfdopts,
 	std::string avdict,
-	bool isDVD,
-	int dvd_track)
+	OMXDvdPlayer *dvd)
 {
   if (!m_dllAvUtil.Load() || !m_dllAvCodec.Load() || !m_dllAvFormat.Load())
     return false;
@@ -191,6 +190,7 @@ bool OMXReader::Open(
   m_filename    = filename; 
   m_speed       = DVD_PLAYSPEED_NORMAL;
   m_program     = UINT_MAX;
+  m_DvdPlayer   = dvd;
   const AVIOInterruptCB int_cb = { interrupt_cb, NULL };
   RESET_TIMEOUT(3);
 
@@ -235,11 +235,10 @@ bool OMXReader::Open(
   if(m_filename.substr(0, 8) == "shout://" )
     m_filename.replace(0, 8, "http://");
 
-  if(isDVD)
+  if(m_DvdPlayer)
   {
     CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", m_filename.c_str());
-    m_DvdPlayer = new OMXDvdPlayer(m_filename);
-    m_DvdPlayer->OpenTrack(dvd_track);
+
     m_chapter_count = m_DvdPlayer->TotalChapters();
 
     buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
@@ -433,12 +432,6 @@ void OMXReader::ClearStreams()
 
 bool OMXReader::Close()
 {
-  if(m_DvdPlayer)
-  {
-    delete m_DvdPlayer;
-    m_DvdPlayer = NULL;
-  }
-
   if (m_pFormatContext)
   {
     if (m_ioContext && m_pFormatContext->pb && m_pFormatContext->pb != m_ioContext)
@@ -549,14 +542,6 @@ bool OMXReader::SeekTime(int time, bool backwords, double *startpts)
   UnLock();
 
   return (ret >= 0);
-}
-
-bool OMXReader::SeekNextTrack()
-{
-  if(!m_DvdPlayer)
-    return false;
-
-  return m_DvdPlayer->OpenTrack(m_DvdPlayer->GetCurrentTrack() + 1);
 }
 
 AVMediaType OMXReader::PacketType(OMXPacket *pkt)
@@ -1152,6 +1137,14 @@ bool OMXReader::SeekChapter(int chapter, double* startpts)
   {
     if(chapter < 1 || !m_pFormatContext)
       return false;
+
+    printf("Seeking chapter: %d / %d\n", chapter, m_DvdPlayer->TotalChapters());
+
+    if(chapter > m_DvdPlayer->TotalChapters())
+    {
+      m_eof = true;
+      return false;
+    }
 
     Lock();
 

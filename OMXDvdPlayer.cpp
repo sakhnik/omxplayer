@@ -19,20 +19,19 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-
-#include "OMXDvdPlayer.h"
 #include <string.h>
 #include <dvdread/dvd_reader.h>
 #include <dvdread/ifo_read.h>
 
+#include "OMXDvdPlayer.h"
 
-OMXDvdPlayer::OMXDvdPlayer(std::string filename)
+bool OMXDvdPlayer::Open(std::string filename)
 {
 	// Open DVD device or file
 	dvd_device = DVDOpen(filename.c_str());
 	if(!dvd_device) {
 		puts("Error on DVDOpen");
-		return;
+		return false;
 	}
 
 	ifo_handle_t *ifo_zero, **ifo;
@@ -41,7 +40,7 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 	ifo_zero = ifoOpen(dvd_device, 0);
 	if ( !ifo_zero ) {
 		fprintf( stderr, "Can't open main ifo!\n");
-		return;
+		return false;
 	}
 
 	ifo = (ifo_handle_t **)malloc((ifo_zero->vts_atrt->nr_of_vtss + 1) * sizeof(ifo_handle_t *));
@@ -50,7 +49,7 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 		ifo[i] = ifoOpen(dvd_device, i);
 		if ( !ifo[i] && i == 0 ) {
 			fprintf( stderr, "Can't open ifo %d!\n", i);
-			return;
+			return false;
 		}
 	}
 
@@ -130,6 +129,15 @@ OMXDvdPlayer::OMXDvdPlayer(std::string filename)
 	for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) ifoClose(ifo[i]);
 	free(ifo);
 	ifoClose(ifo_zero);
+	m_allocated = true;
+	return true;
+}
+
+bool OMXDvdPlayer::ChangeTrack(int delta, int &t)
+{
+	bool r = OpenTrack(current_track + delta);
+	t = current_track;
+	return r;
 }
 
 bool OMXDvdPlayer::OpenTrack(int ct)
@@ -137,11 +145,14 @@ bool OMXDvdPlayer::OpenTrack(int ct)
 	if(m_open == true)
 		CloseTrack();
 
-	if(ct > dvd_info.title_count - 1)
+	if(ct < 0 || ct > dvd_info.title_count - 1)
 		return false;
 
 	// select track
 	current_track = ct;
+
+	// seek to beginning to track
+	pos = 0;
 
 	// blocks for this track
 	total_blocks = dvd_info.titles[current_track].last_sector - dvd_info.titles[current_track].first_sector + 1;
@@ -210,9 +221,7 @@ int64_t OMXDvdPlayer::Seek(int64_t iFilePosition, int iWhence)
 
 int64_t OMXDvdPlayer::GetLength()
 {
-	int64_t len = dvd_info.titles[current_track].last_sector - dvd_info.titles[current_track].first_sector + 1;
-	len *= 2048;
-	return len;
+	return (int64_t)total_blocks * 2048;
 }
 
 int OMXDvdPlayer::TotalChapters()
@@ -255,11 +264,14 @@ OMXDvdPlayer::~OMXDvdPlayer()
 	if(m_open == true)
 		CloseTrack();
 
-	for (int i=0; i < dvd_info.title_count; i++)
-		free(dvd_info.titles[i].chapters);
-	free(dvd_info.titles);
+	if(m_allocated) {
+		for (int i=0; i < dvd_info.title_count; i++)
+			free(dvd_info.titles[i].chapters);
+		free(dvd_info.titles);
+	}
 
-	DVDClose(dvd_device);
+	if(dvd_device)
+		DVDClose(dvd_device);
 }
 
 int OMXDvdPlayer::dvdtime2msec(dvd_time_t *dt)

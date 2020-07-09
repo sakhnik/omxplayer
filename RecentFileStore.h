@@ -28,14 +28,15 @@ class RecentFileStore
 public:
 	RecentFileStore();
 	void forget(string &key);
-	int getTime(string &key);
-	void remember(string &key, int time);
+	int getTime(string &key, int &track);
+	void remember(string key, int track, int time);
 	void saveStore();
 	bool checkIfRecentFile(string &filename);
 
 private:
 	struct fileInfo {
 		int time;
+		int track;
 		int pos;
 	};
 

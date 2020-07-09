@@ -497,8 +497,9 @@ int main(int argc, char *argv[])
   bool                  m_seek_flush          = false;
   bool                  m_chapter_seek        = false;
   std::string           m_filename;
-  int                   m_track               = 0;
+  int                   m_track               = -1;
   bool                  m_isDVD               = false;
+  OMXDvdPlayer          *m_DvdPlayer          = NULL;
   double                m_incr                = 0;
   double                m_loop_from           = 0;
   CRBP                  g_RBP;
@@ -522,6 +523,7 @@ int main(int argc, char *argv[])
   std::string            m_user_agent          = "";
   std::string            m_lavfdopts           = "";
   std::string            m_avdict              = "";
+  bool                   m_audio_extension     = false;
 
   const int font_opt        = 0x100;
   const int italic_font_opt = 0x201;
@@ -563,6 +565,7 @@ int main(int argc, char *argv[])
   const int http_user_agent_opt = 0x301;
   const int lavfdopts_opt   = 0x400;
   const int avdict_opt      = 0x401;
+  const int track_opt       = 0x402;
 
   struct option longopts[] = {
     { "info",         no_argument,        NULL,          'i' },
@@ -625,6 +628,7 @@ int main(int argc, char *argv[])
     { "user-agent",   required_argument,  NULL,          http_user_agent_opt },
     { "lavfdopts",    required_argument,  NULL,          lavfdopts_opt },
     { "avdict",       required_argument,  NULL,          avdict_opt },
+    { "track",        required_argument,  NULL,          track_opt },
     { 0, 0, 0, 0 }
   };
 
@@ -900,6 +904,9 @@ int main(int argc, char *argv[])
       case avdict_opt:
         m_avdict = optarg;
         break;
+      case track_opt:
+        m_track = atoi(optarg) - 1;
+        if(m_track < 0) m_track = -1;
       case 0:
         break;
       case 'h':
@@ -934,20 +941,14 @@ int main(int argc, char *argv[])
   if(m_filename.substr(0, 7) == "file://" )
     m_filename.replace(0, 7, "");
 
-  // a number suffix (eg ':4') on a file name indicates track no
-  CRegExp filetrack = CRegExp(true);
-  filetrack.RegComp("^(.*?):([0-9]+)$");
-  if(filetrack.RegFind(m_filename, 0) > -1) {
-    m_filename = filetrack.GetMatch(1);
-    m_track = stoi(filetrack.GetMatch(2));
-  }
-
   auto PrintFileNotFound = [](const std::string& path)
   {
     printf("File \"%s\" not found.\n", path.c_str());
   };
 
-  if(!IsURL(m_filename) && !IsPipe(m_filename))
+  bool is_local_file = !IsURL(m_filename) && !IsPipe(m_filename);
+
+  if(is_local_file)
   {
     if(!Exists(m_filename))
     {
@@ -968,30 +969,39 @@ int main(int argc, char *argv[])
 
     // check if this is a "link" in the recent file folder
     // if it's a file check it exists
-    if(m_store.checkIfRecentFile(m_filename) && !IsURL(m_filename) && !IsPipe(m_filename)
-        && !Exists(m_filename)) {
-      PrintFileNotFound(m_filename);
-      return EXIT_FAILURE;
-    }
+    if(m_store.checkIfRecentFile(m_filename))
+    {
+      is_local_file = !IsURL(m_filename) && !IsPipe(m_filename);
 
-    // Are we dealing with a DVD VIDEO_TS folder
+      if(is_local_file && !Exists(m_filename))
+      {
+        PrintFileNotFound(m_filename);
+        return EXIT_FAILURE;
+      }
+    }
+  }
+
+	// m_filename may have changed
+  if(is_local_file)
+  {
+    // Are we dealing with a DVD VIDEO_TS folder or a device file
     CRegExp findvideots = CRegExp(true);
-    findvideots.RegComp("^(.*?/VIDEO_TS)");
+    findvideots.RegComp("^(.*?/VIDEO_TS|/dev/.*)");
     if(findvideots.RegFind(m_filename, 0) > -1)
     {
       m_isDVD = true;
       m_filename = findvideots.GetMatch(1);
     }
-    else
+    else if(!IsPipe(m_filename))
     {
       // make a playlist
       m_playlist.readPlaylist(m_filename);
     }
+  }
 
-	// find seek position
-    if(m_incr == 0) {
-      m_incr = m_store.getTime(m_filename);
-    }
+  // find seek position
+  if(!IsPipe(m_filename) && m_incr == 0) {
+    m_incr = m_store.getTime(m_filename, m_track);
   }
 
   if(m_asked_for_font && !Exists(m_font_path))
@@ -1055,37 +1065,57 @@ int main(int argc, char *argv[])
 	  || m_filename.substr(m_filename.size()-4, 4) == ".dmg")
 	m_isDVD = true;
 
-  if(m_osd && !m_isDVD && !m_has_external_subtitles && !IsURL(m_filename))
+  if(m_isDVD)
   {
-    auto subtitles_path = m_filename.substr(0, m_filename.find_last_of(".")) +
-                          ".srt";
-
-    if(Exists(subtitles_path))
+    if(m_track == -1) m_track = 0;
+    m_has_external_subtitles = false;
+    m_audio_extension = false;
+    m_DvdPlayer = new OMXDvdPlayer();
+    if(!m_DvdPlayer->Open(m_filename) || !m_DvdPlayer->OpenTrack(m_track))
     {
-      m_external_subtitles_path = subtitles_path;
-      m_has_external_subtitles = true;
+      g_abort = true;
+      goto do_exit;
+    }
+  }
+  else
+  {
+    m_track = -1;
+
+    if(m_osd && !m_has_external_subtitles && !IsURL(m_filename))
+    {
+      auto subtitles_path = m_filename.substr(0, m_filename.find_last_of(".")) +
+                            ".srt";
+
+      if(Exists(subtitles_path))
+      {
+        m_external_subtitles_path = subtitles_path;
+        m_has_external_subtitles = true;
+      }
+    }
+
+    m_audio_extension = false;
+    const CStdString m_musicExtensions = ".nsv|.m4a|.flac|.aac|.strm|.pls|.rm|.rma|.mpa|.wav|.wma|.ogg|.mp3|.mp2|.m3u|.mod|.amf|.669|.dmf|.dsm|.far|.gdm|"
+                   ".imf|.it|.m15|.med|.okt|.s3m|.stm|.sfx|.ult|.uni|.xm|.sid|.ac3|.dts|.cue|.aif|.aiff|.wpl|.ape|.mac|.mpc|.mp+|.mpp|.shn|.zip|.rar|"
+                   ".wv|.nsf|.spc|.gym|.adx|.dsp|.adp|.ymf|.ast|.afc|.hps|.xsp|.xwav|.waa|.wvs|.wam|.gcm|.idsp|.mpdsp|.mss|.spt|.rsd|.mid|.kar|.sap|"
+                   ".cmc|.cmr|.dmc|.mpt|.mpd|.rmt|.tmc|.tm8|.tm2|.oga|.url|.pxml|.tta|.rss|.cm3|.cms|.dlt|.brstm|.mka";
+    if (m_filename.find_last_of(".") != string::npos)
+    {
+      CStdString extension = m_filename.substr(m_filename.find_last_of("."));
+      if (!extension.IsEmpty() && m_musicExtensions.Find(extension.ToLower()) != -1)
+        m_audio_extension = true;
     }
   }
 
-  bool m_audio_extension = false;
-  const CStdString m_musicExtensions = ".nsv|.m4a|.flac|.aac|.strm|.pls|.rm|.rma|.mpa|.wav|.wma|.ogg|.mp3|.mp2|.m3u|.mod|.amf|.669|.dmf|.dsm|.far|.gdm|"
-                 ".imf|.it|.m15|.med|.okt|.s3m|.stm|.sfx|.ult|.uni|.xm|.sid|.ac3|.dts|.cue|.aif|.aiff|.wpl|.ape|.mac|.mpc|.mp+|.mpp|.shn|.zip|.rar|"
-                 ".wv|.nsf|.spc|.gym|.adx|.dsp|.adp|.ymf|.ast|.afc|.hps|.xsp|.xwav|.waa|.wvs|.wam|.gcm|.idsp|.mpdsp|.mss|.spt|.rsd|.mid|.kar|.sap|"
-                 ".cmc|.cmr|.dmc|.mpt|.mpd|.rmt|.tmc|.tm8|.tm2|.oga|.url|.pxml|.tta|.rss|.cm3|.cms|.dlt|.brstm|.mka";
-  if (m_filename.find_last_of(".") != string::npos)
-  {
-    CStdString extension = m_filename.substr(m_filename.find_last_of("."));
-    if (!extension.IsEmpty() && m_musicExtensions.Find(extension.ToLower()) != -1)
-      m_audio_extension = true;
-  }
+  change_track:
 
-  if(!m_omx_reader.Open(m_filename.c_str(), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie.c_str(), m_user_agent.c_str(), m_lavfdopts.c_str(), m_avdict.c_str(), m_isDVD, m_track))
+  if(!m_omx_reader.Open(m_filename.c_str(), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie.c_str(), m_user_agent.c_str(), m_lavfdopts.c_str(), m_avdict.c_str(), m_DvdPlayer))
+  {
+    g_abort = true;
     goto do_exit;
+  }
 
   if (m_dump_format_exit)
     goto do_exit;
-
-  change_track:
 
   if(m_isDVD)
     printf("Playing: %s, Track: %d\n", m_filename.c_str(), m_track + 1);
@@ -1144,10 +1174,16 @@ int main(int argc, char *argv[])
     m_config_video.hdmi_clock_sync = true;
 
   if(!m_av_clock->OMXInitialize())
+  {
+    g_abort = true;
     goto do_exit;
+  }
 
   if(m_config_video.hdmi_clock_sync && !m_av_clock->HDMIClockSync())
+  {
+    g_abort = true;
     goto do_exit;
+  }
 
   m_av_clock->OMXStateIdle();
   m_av_clock->OMXStop();
@@ -1185,7 +1221,10 @@ int main(int argc, char *argv[])
   if (m_orientation >= 0)
     m_config_video.hints.orientation = m_orientation;
   if(m_has_video && !m_player_video.Open(m_av_clock, m_config_video))
+  {
+    g_abort = true;
     goto do_exit;
+  }
 
   if(m_has_subtitle || m_osd)
   {
@@ -1207,7 +1246,10 @@ int main(int argc, char *argv[])
                                 m_subtitle_lines,
                                 m_config_video.display, m_config_video.layer + 1,
                                 m_av_clock))
+    {
+      g_abort = true;
       goto do_exit;
+    }
     if(m_config_video.dst_rect.x2 > 0 && m_config_video.dst_rect.y2 > 0)
         m_player_subtitles.SetSubtitleRect(m_config_video.dst_rect.x1, m_config_video.dst_rect.y1, m_config_video.dst_rect.x2, m_config_video.dst_rect.y2);
   }
@@ -1249,7 +1291,10 @@ int main(int argc, char *argv[])
     m_config_audio.passthrough = false;
 
   if(m_has_audio && !m_player_audio.Open(m_av_clock, m_config_audio, &m_omx_reader))
+  {
+    g_abort = true;
     goto do_exit;
+  }
 
   if(m_has_audio)
   {
@@ -1392,8 +1437,8 @@ int main(int argc, char *argv[])
       case KeyConfig::ACTION_PREVIOUS_CHAPTER:
         if(m_omx_reader.GetChapterCount() > 0)
         {
-          m_omx_reader.SeekChapter(m_omx_reader.GetChapter() - 1, &startpts);
-          DISPLAY_TEXT_LONG(strprintf("Chapter %d", m_omx_reader.GetChapter()));
+          if(m_omx_reader.SeekChapter(m_omx_reader.GetChapter() - 1, &startpts))
+            DISPLAY_TEXT_LONG(strprintf("Chapter %d", m_omx_reader.GetChapter()));
           FlushStreams(startpts);
           m_seek_flush = true;
           m_chapter_seek = true;
@@ -1406,8 +1451,8 @@ int main(int argc, char *argv[])
       case KeyConfig::ACTION_NEXT_CHAPTER:
         if(m_omx_reader.GetChapterCount() > 0)
         {
-          m_omx_reader.SeekChapter(m_omx_reader.GetChapter() + 1, &startpts);
-          DISPLAY_TEXT_LONG(strprintf("Chapter %d", m_omx_reader.GetChapter()));
+          if(m_omx_reader.SeekChapter(m_omx_reader.GetChapter() + 1, &startpts))
+            DISPLAY_TEXT_LONG(strprintf("Chapter %d", m_omx_reader.GetChapter()));
           FlushStreams(startpts);
           m_seek_flush = true;
           m_chapter_seek = true;
@@ -1923,15 +1968,6 @@ do_exit:
 
   // flush streams
   FlushStreams(DVD_NOPTS_VALUE);
-
-  // if this is a DVD look to next track
-  if(m_isDVD && !m_stop && !g_abort && m_send_eos) {
-    if(m_omx_reader.SeekNextTrack())
-      goto change_track;
-    m_isDVD = false;
-  }
-
-  // close stuff relative to a specific file
   m_omx_reader.Close();
   m_player_subtitles.Close();
   m_player_video.Close();
@@ -1942,13 +1978,27 @@ do_exit:
   m_incr = 0;
 
   if(!m_stop && !g_abort && m_send_eos) {
+    // if this is a DVD look for next track
+    if(m_isDVD) {
+      if(m_DvdPlayer->ChangeTrack(1, m_track))
+      {
+        m_firstfile = false;
+        goto change_track;
+      }
+
+      // no more tracks to play, exit DVD mode
+      m_isDVD = false;
+      delete m_DvdPlayer;
+      m_DvdPlayer = NULL;
+    }
+
     //play next file in playlist if there is one...
     if(m_playlist.getNextFile(m_filename)) {
       m_firstfile = false;
       goto change_file;
     }
   } else if(!m_firstfile || t > 5) {
-    m_store.remember(m_filename, (int)t);
+    m_store.remember(m_filename, m_track, (int)t);
   }
 
   if (m_NativeDeinterlace)

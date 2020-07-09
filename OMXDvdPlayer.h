@@ -7,10 +7,11 @@
 class OMXDvdPlayer
 {
   public:
-	OMXDvdPlayer(std::string filename);
+	bool Open(std::string filename);
 	~OMXDvdPlayer();
 
 	void CloseTrack();
+	bool ChangeTrack(int delta, int &t);
 	bool OpenTrack(int ct);
 
 	int Read(unsigned char *lpBuf, int64_t uiBufSize);
@@ -27,6 +28,7 @@ class OMXDvdPlayer
 	void get_title_name();
 
 	bool m_open = false;
+	bool m_allocated = false;
 	volatile int pos = 0;
 	dvd_reader_t *dvd_device = NULL;
 	dvd_file_t *dvd_track = NULL;

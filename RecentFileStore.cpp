@@ -35,6 +35,7 @@ RecentFileStore::RecentFileStore()
 {
 	string uri;
 	int time;
+	int track;
 
 	// recent dir
 	recent_dir = getenv("HOME");
@@ -54,7 +55,11 @@ RecentFileStore::RecentFileStore()
 		ifstream s(recents[i]);
 
 		if(getline(s, uri) && s >> time) {
-			store[uri] = {time, ++count};
+			if(s >> track) {
+				store[uri] = {time, track, ++count};
+			} else {
+				store[uri] = {time, -1, ++count};
+			}
 		}
 		s.close();
 	}
@@ -109,17 +114,27 @@ void RecentFileStore::forget(string &key)
 	store.erase(key);
 }
 
-int RecentFileStore::getTime(string &key)
+int RecentFileStore::getTime(string &key, int &track)
 {
-	if(store.find(key) != store.end())
-		return store[key].time;
-	else
+	if(store.find(key) == store.end()) {
 		return 0;
+	}
+
+	if(track == -1) {
+		track = store[key].track;
+		return store[key].time;
+	}
+
+	if(track == store[key].track) {
+		return store[key].time;
+	}
+
+	return 0;
 }
 
-void RecentFileStore::remember(string &key, int time)
+void RecentFileStore::remember(string key, int track, int time)
 {
-	store[key] = {time, -1};
+	store[key] = {time, track, -1};
 }
 
 void RecentFileStore::clearRecents()
@@ -172,6 +187,7 @@ void RecentFileStore::saveStore()
 		// write link file
 		ofstream s(recent_dir + link);
 		s << vector_store[i].first << '\n' << vector_store[i].second.time << "\n";
+		if(vector_store[i].second.track > 0) s << vector_store[i].second.track << "\n";
 		s.close();
 	}
 }
