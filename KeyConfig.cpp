@@ -30,6 +30,10 @@ int convertStringToAction(string str_action)
         return KeyConfig::ACTION_PREVIOUS_CHAPTER;
     if(str_action == "NEXT_CHAPTER")
         return KeyConfig::ACTION_NEXT_CHAPTER;
+    if(str_action == "PREVIOUS_FILE")
+        return KeyConfig::ACTION_PREVIOUS_FILE;
+    if(str_action == "NEXT_FILE")
+        return KeyConfig::ACTION_NEXT_FILE;
     if(str_action == "PREVIOUS_SUBTITLE")
         return KeyConfig::ACTION_PREVIOUS_SUBTITLE;
     if(str_action == "NEXT_SUBTITLE")
@@ -109,6 +113,8 @@ map<int, int> KeyConfig::buildDefaultKeymap()
     keymap['k'] = ACTION_NEXT_AUDIO;
     keymap['i'] = ACTION_PREVIOUS_CHAPTER;
     keymap['o'] = ACTION_NEXT_CHAPTER;
+    keymap['9'] = ACTION_PREVIOUS_FILE;
+    keymap['0'] = ACTION_NEXT_FILE;
     keymap['n'] = ACTION_PREVIOUS_SUBTITLE;
     keymap['m'] = ACTION_NEXT_SUBTITLE;
     keymap['s'] = ACTION_TOGGLE_SUBTITLE;

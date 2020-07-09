@@ -524,6 +524,7 @@ int main(int argc, char *argv[])
   std::string            m_lavfdopts           = "";
   std::string            m_avdict              = "";
   bool                   m_audio_extension     = false;
+  int                    m_next_prev_file      = 1;
 
   const int font_opt        = 0x100;
   const int italic_font_opt = 0x201;
@@ -1462,6 +1463,16 @@ int main(int argc, char *argv[])
           m_incr = 600.0;
         }
         break;
+      case KeyConfig::ACTION_PREVIOUS_FILE:
+        m_send_eos = 1;
+        m_next_prev_file = -1;
+        goto do_exit;
+        break;
+      case KeyConfig::ACTION_NEXT_FILE:
+        m_send_eos = 1;
+        m_next_prev_file = 1;
+        goto do_exit;
+        break;
       case KeyConfig::ACTION_PREVIOUS_SUBTITLE:
         if(m_has_subtitle)
         {
@@ -1980,9 +1991,10 @@ do_exit:
   if(!m_stop && !g_abort && m_send_eos) {
     // if this is a DVD look for next track
     if(m_isDVD) {
-      if(m_DvdPlayer->ChangeTrack(1, m_track))
+      if(m_DvdPlayer->ChangeTrack(m_next_prev_file, m_track))
       {
         m_firstfile = false;
+        m_next_prev_file = 1;
         goto change_track;
       }
 
@@ -1993,8 +2005,9 @@ do_exit:
     }
 
     //play next file in playlist if there is one...
-    if(m_playlist.getNextFile(m_filename)) {
+    if(m_playlist.ChangeFile(m_next_prev_file, m_filename)) {
       m_firstfile = false;
+      m_next_prev_file = 1;
       goto change_file;
     }
   } else if(!m_firstfile || t > 5) {

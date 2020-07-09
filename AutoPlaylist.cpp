@@ -90,19 +90,16 @@ void AutoPlaylist::readPlaylist(string &filename)
 	playlist.clear();
 }
 
-bool AutoPlaylist::getNextFile(string &filename)
+bool AutoPlaylist::ChangeFile(int delta, string &filename)
 {
-	int last = playlist.size() - 1;
-	if(playlist_pos == last) return false;
-	playlist_pos++;
-	filename = dirname + playlist[playlist_pos];
-	return true;
-}
+	int npos = playlist_pos + delta;
+	int last_index = playlist.size() - 1;
 
-bool AutoPlaylist::getPrevFile(string &filename)
-{
-	if(playlist_pos <= 0) return false;
-	playlist_pos--;
+	if(npos < 0 || npos > last_index)
+		return false;
+
+	playlist_pos = npos;
+
 	filename = dirname + playlist[playlist_pos];
 	return true;
 }

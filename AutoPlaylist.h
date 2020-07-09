@@ -27,8 +27,7 @@ class AutoPlaylist
 {
 public:
 	void readPlaylist(string &indexfilepath);
-	bool getNextFile(string &filename);
-	bool getPrevFile(string &filename);
+	bool ChangeFile(int delta, string &filename);
 
 private:
 	vector<string> playlist;
