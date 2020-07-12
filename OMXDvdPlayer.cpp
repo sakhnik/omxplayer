@@ -23,10 +23,13 @@
 #include <dvdread/dvd_reader.h>
 #include <dvdread/ifo_read.h>
 
+#include "OMXReader.h"
 #include "OMXDvdPlayer.h"
 
 bool OMXDvdPlayer::Open(std::string filename)
 {
+	static int audio_id[7] = {0x80, 0, 0xC0, 0xC0, 0xA0, 0, 0x88};
+
 	// Open DVD device or file
 	dvd_device = DVDOpen(filename.c_str());
 	if(!dvd_device) {
@@ -71,10 +74,9 @@ bool OMXDvdPlayer::Open(std::string filename)
 			continue;
 		}
 
-		pgcit_t *vts_pgcit;
-		pgc_t *pgc;
-		vts_pgcit  = ifo[title_set_nr]->vts_pgcit;
-		pgc = vts_pgcit->pgci_srp[ifo[title_set_nr]->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1].pgc;
+		pgcit_t    *vts_pgcit  = ifo[title_set_nr]->vts_pgcit;
+		vtsi_mat_t *vtsi_mat   = ifo[title_set_nr]->vtsi_mat;
+		pgc_t      *pgc        = vts_pgcit->pgci_srp[ifo[title_set_nr]->vts_ptt_srpt->title[vts_ttn - 1].ptt[0].pgcn - 1].pgc;
 
 		if(pgc->cell_playback == NULL || pgc->program_map == NULL) {
 			h--;
@@ -123,6 +125,45 @@ bool OMXDvdPlayer::Open(std::string filename)
 			}
 			dvd_info.titles[h].chapters[i] = p - dvd_info.titles[h].first_sector;
 		}
+
+		// Streams
+		dvd_info.titles[h].audiostream_count = 0;
+		dvd_info.titles[h].subtitle_count = 0;
+		for (int k = 0; k < 8; k++)
+			if (pgc->audio_control[k] & 0x8000)
+				dvd_info.titles[h].audiostream_count++;
+
+		for (int k = 0; k < 32; k++)
+			if (pgc->subp_control[k] & 0x80000000)
+				dvd_info.titles[h].subtitle_count++;
+
+		dvd_info.titles[h].streams = (dvd_info::title_info::stream_info *)calloc(
+				dvd_info.titles[h].audiostream_count + dvd_info.titles[h].subtitle_count,
+				sizeof(*dvd_info.titles[h].streams));
+		int stream_index = 0;
+
+		for (int i=0, k=0; i<8; i++) {
+			if ((pgc->audio_control[i] & 0x8000) == 0) continue;
+
+			audio_attr_t *audio_attr = &vtsi_mat->vts_audio_attr[i];
+			dvd_info.titles[h].streams[stream_index++] = {
+				k++,
+				audio_id[audio_attr->audio_format] + (pgc->audio_control[i] >> 8 & 7),
+				audio_attr->lang_code
+			};
+		}
+
+		int x = vtsi_mat->vts_video_attr.display_aspect_ratio == 0 ? 24 : 8;
+		for (int i=0, k=0; i<32; i++) {
+			if ((pgc->subp_control[i] & 0x80000000) == 0) continue;
+
+			subp_attr_t *subp_attr = &vtsi_mat->vts_subp_attr[i];
+			dvd_info.titles[h].streams[stream_index++] = {
+				k++,
+				(int)((pgc->subp_control[i] >> x) & 0x1f) + 0x20,
+				subp_attr->lang_code,
+			};
+		}
 	}
 
 	// close dvd meta data
@@ -130,6 +171,7 @@ bool OMXDvdPlayer::Open(std::string filename)
 	free(ifo);
 	ifoClose(ifo_zero);
 	m_allocated = true;
+	puts("Finished parsing DVD meta data");
 	return true;
 }
 
@@ -257,6 +299,32 @@ void OMXDvdPlayer::CloseTrack()
 {
 	DVDCloseFile(dvd_track);
 	m_open = false;
+}
+
+// A sanity check. Before copying over the meta data, make sure the number of streams found
+// in the vob file correspond to streams listed in the DVD meta data
+bool OMXDvdPlayer::MetaDataCheck(int audiostream_count, int subtitle_count)
+{
+	return dvd_info.titles[current_track].audiostream_count == audiostream_count &&
+		dvd_info.titles[current_track].subtitle_count == subtitle_count;
+}
+
+void OMXDvdPlayer::GetStreamInfo(OMXStream *stream)
+{
+	int len = dvd_info.titles[current_track].audiostream_count + dvd_info.titles[current_track].subtitle_count;
+
+	for (int i=0; i < len; i++) {
+		if(dvd_info.titles[current_track].streams[i].id == stream->stream->id) {
+			stream->index = dvd_info.titles[current_track].streams[i].index;
+
+			uint16_t lc = dvd_info.titles[current_track].streams[i].lang;
+			sprintf(stream->language, "%c%c", lc >> 8, lc & 0xff);
+			return;
+		}
+	}
+
+	// fail
+	stream->index = -1;
 }
 
 OMXDvdPlayer::~OMXDvdPlayer()

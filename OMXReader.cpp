@@ -207,6 +207,10 @@ bool OMXReader::Open(
 
   m_pFormatContext     = m_dllAvFormat.avformat_alloc_context();
 
+  // the default size doesn't appear to be big enough for DVDs
+  if(m_DvdPlayer)
+    m_dllAvFormat.av_set_options_string(m_pFormatContext, "probesize:100M,analyzeduration:100M", ":", ",");
+
   result = m_dllAvFormat.av_set_options_string(m_pFormatContext, lavfdopts.c_str(), ":", ",");
 
   if (result < 0)
@@ -730,6 +734,18 @@ bool OMXReader::GetStreams()
   {
     for (unsigned int i = 0; i < m_pFormatContext->nb_streams; i++)
       AddStream(i);
+  }
+
+  // Add DVD meta data
+  if(m_DvdPlayer)
+  {
+    if(m_DvdPlayer->MetaDataCheck(m_audio_count, m_subtitle_count))
+    {
+      for(int i = 0; i < MAX_STREAMS; i++)
+        if(m_streams[i].type == OMXSTREAM_AUDIO || m_streams[i].type == OMXSTREAM_SUBTITLE)
+          m_DvdPlayer->GetStreamInfo(&m_streams[i]);
+    }
+    else puts("DVD meta data mismatch");
   }
 
   if(m_video_count)

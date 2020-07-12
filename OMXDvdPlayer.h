@@ -4,6 +4,8 @@
 #include <dvdread/ifo_read.h>
 #include <string>
 
+struct OMXStream;
+
 class OMXDvdPlayer
 {
   public:
@@ -22,6 +24,8 @@ class OMXDvdPlayer
 	bool SeekChapter(int chapter);
 	int GetChapter();
 	int GetCurrentTrack() const { return current_track; }
+	void GetStreamInfo(OMXStream *stream);
+	bool MetaDataCheck(int audiostream_count, int subtitle_count);
 
   private:
 	int dvdtime2msec(dvd_time_t *dt);
@@ -45,6 +49,13 @@ class OMXDvdPlayer
 			float length;
 			int chapter_count;
 			int *chapters;
+			int audiostream_count;
+			int subtitle_count;
+			struct stream_info {
+				int index;
+				int id;
+				uint16_t lang;
+			} *streams;
 			int first_sector;
 			int last_sector;
 		} *titles;
