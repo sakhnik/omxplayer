@@ -524,7 +524,7 @@ int main(int argc, char *argv[])
   std::string            m_lavfdopts           = "";
   std::string            m_avdict              = "";
   bool                   m_audio_extension     = false;
-  int                    m_next_prev_file      = 1;
+  int                    m_next_prev_file      = 0;
 
   const int font_opt        = 0x100;
   const int italic_font_opt = 0x201;
@@ -1977,6 +1977,11 @@ do_exit:
   printf("Stopped at: %02d:%02d:%02d\n", (t/3600), (t/60)%60, t%60);
   printf("  Duration: %02d:%02d:%02d\n", (dur/3600), (dur/60)%60, dur%60);
 
+  // Try to catch instances where m_send_eos has been set but we haven't
+  // actually reached the end of the current file.
+  if(m_send_eos && m_next_prev_file == 0 && (dur - t) > 2)
+    m_send_eos = false;
+
   // flush streams
   FlushStreams(DVD_NOPTS_VALUE);
   m_omx_reader.Close();
@@ -1989,12 +1994,15 @@ do_exit:
   m_incr = 0;
 
   if(!m_stop && !g_abort && m_send_eos) {
+    // default to playing next track file
+    if(m_next_prev_file == 0) m_next_prev_file = 1;
+
     // if this is a DVD look for next track
     if(m_isDVD) {
       if(m_DvdPlayer->ChangeTrack(m_next_prev_file, m_track))
       {
         m_firstfile = false;
-        m_next_prev_file = 1;
+        m_next_prev_file = 0;
         goto change_track;
       }
 
@@ -2007,7 +2015,7 @@ do_exit:
     //play next file in playlist if there is one...
     if(m_playlist.ChangeFile(m_next_prev_file, m_filename)) {
       m_firstfile = false;
-      m_next_prev_file = 1;
+      m_next_prev_file = 0;
       goto change_file;
     }
   } else if(!m_firstfile || t > 5) {
