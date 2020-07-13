@@ -41,6 +41,7 @@ SRC=		linux/XMemUtils.cpp \
 		revision.cpp \
 		AutoPlaylist.cpp \
 		RecentFileStore.cpp \
+		RecentDVDStore.cpp \
 		OMXDvdPlayer.cpp \
 
 OBJS+=$(filter %.o,$(SRC:.cpp=.o))

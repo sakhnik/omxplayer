@@ -2,7 +2,7 @@
  * Copyright (C) 2020 by Michael J. Walsh
  *
  * Much of this file is a slimmed down version of lsdvd by Chris Phillips
- * and Henk Vergonet.
+ * and Henk Vergonet, and Martin Thierer's fork.
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,9 +29,10 @@
 bool OMXDvdPlayer::Open(std::string filename)
 {
 	static int audio_id[7] = {0x80, 0, 0xC0, 0xC0, 0xA0, 0, 0x88};
+	dvd_info.device = filename;
 
 	// Open DVD device or file
-	dvd_device = DVDOpen(filename.c_str());
+	dvd_device = DVDOpen(dvd_info.device.c_str());
 	if(!dvd_device) {
 		puts("Error on DVDOpen");
 		return false;
@@ -58,8 +59,8 @@ bool OMXDvdPlayer::Open(std::string filename)
 
 	int titles = ifo_zero->tt_srpt->nr_of_srpts;
 
-	dvd_info.device = filename;
 	get_title_name();
+	get_disc_id();
 
 	dvd_info.title_count = titles;
 	dvd_info.titles = (dvd_info::title_info *)calloc(titles, sizeof(*dvd_info.titles));
@@ -177,15 +178,24 @@ bool OMXDvdPlayer::Open(std::string filename)
 
 bool OMXDvdPlayer::ChangeTrack(int delta, int &t)
 {
-	bool r = OpenTrack(current_track + delta);
+	int ct = current_track + delta;
+
+	if(ct < 0 || ct > dvd_info.title_count - 1)
+		return false;
+
+	bool r = OpenTrack(ct);
 	t = current_track;
 	return r;
 }
 
-bool OMXDvdPlayer::OpenTrack(int ct)
+bool OMXDvdPlayer::OpenTrack(int &ct)
 {
 	if(m_open == true)
 		CloseTrack();
+
+	// In future setting ct to -1 will invoke heuristics to avoid too short and composite tracks
+	if(ct == -1)
+		ct = 0;
 
 	if(ct < 0 || ct > dvd_info.title_count - 1)
 		return false;
@@ -383,4 +393,16 @@ void OMXDvdPlayer::get_title_name()
 		if(title[i] == ' ') title[i] = '\0';
 
 	dvd_info.disc_title = title;
+}
+
+void OMXDvdPlayer::get_disc_id()
+{
+	unsigned char buf[16];
+	if (DVDDiscID(dvd_device, buf) == -1) return;
+
+	char hex[33];
+	for (int i = 0; i < 16; i++)
+		sprintf(hex + 2 * i, "%02x", buf[i]);
+
+	dvd_info.disc_checksum = hex;
 }

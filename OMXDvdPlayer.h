@@ -14,7 +14,7 @@ class OMXDvdPlayer
 
 	void CloseTrack();
 	bool ChangeTrack(int delta, int &t);
-	bool OpenTrack(int ct);
+	bool OpenTrack(int &ct);
 
 	int Read(unsigned char *lpBuf, int64_t uiBufSize);
 	int64_t Seek(int64_t iFilePosition, int iWhence);
@@ -26,10 +26,12 @@ class OMXDvdPlayer
 	int GetCurrentTrack() const { return current_track; }
 	void GetStreamInfo(OMXStream *stream);
 	bool MetaDataCheck(int audiostream_count, int subtitle_count);
+	std::string GetDVDID() const { return dvd_info.disc_checksum; }
 
   private:
 	int dvdtime2msec(dvd_time_t *dt);
 	void get_title_name();
+	void get_disc_id();
 
 	bool m_open = false;
 	bool m_allocated = false;
@@ -43,6 +45,7 @@ class OMXDvdPlayer
 	struct dvd_info {
 		std::string device;
 		std::string disc_title;
+		std::string disc_checksum;
 		int title_count;
 		struct title_info {
 			int vts;

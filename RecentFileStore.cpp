@@ -33,10 +33,6 @@ using namespace std;
 
 RecentFileStore::RecentFileStore()
 {
-	string uri;
-	int time;
-	int track;
-
 	// recent dir
 	recent_dir = getenv("HOME");
 	recent_dir += "/OMXPlayerRecent/"; // note the trailing slash
@@ -46,6 +42,13 @@ RecentFileStore::RecentFileStore()
     if ( stat(recent_dir.c_str(), &fileStat) || !S_ISDIR(fileStat.st_mode) ) {
         mkdir(recent_dir.c_str(), 0777);
     }
+}
+
+void RecentFileStore::readStore()
+{
+	string uri;
+	int time;
+	int track;
 
 	vector<string> recents = getRecentFileList();
 	sort(recents.begin(), recents.end());

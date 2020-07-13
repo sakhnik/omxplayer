@@ -19,32 +19,29 @@
  */
 
 #include <string>
-#include <vector>
+#include <map>
 
 using namespace std;
 
-class RecentFileStore
+class RecentDVDStore
 {
 public:
-	RecentFileStore();
+	RecentDVDStore();
 	void readStore();
-	void forget(string &key);
-	int getTime(string &key, int &track);
-	void remember(string key, int track, int time);
+	int setCurrentDVD(string key, int &track);
+	void remember(int track, int time);
 	void saveStore();
-	bool checkIfRecentFile(string &filename);
 
 private:
-	struct fileInfo {
+	struct DVDInfo {
 		int time;
 		int track;
 		int pos;
 	};
 
-	vector<string> getRecentFileList();
-	void clearRecents();
-	static bool fileinfoCmp(pair<string, fileInfo> const &a, pair<string, fileInfo> const &b);
+	static bool DVDInfoCmp(pair<string, DVDInfo> const &a, pair<string, DVDInfo> const &b);
 
-	map<string, fileInfo> store;
-	string recent_dir;
+	map<string, DVDInfo> store;
+	string recent_dvd_file;
+	string current_dvd;
 };

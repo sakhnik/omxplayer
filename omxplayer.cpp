@@ -62,6 +62,7 @@ extern "C" {
 #include "utils/RegExp.h"
 #include "AutoPlaylist.h"
 #include "RecentFileStore.h"
+#include "RecentDVDStore.h"
 
 #include <string>
 #include <utility>
@@ -118,7 +119,8 @@ bool              m_has_audio           = false;
 bool              m_has_subtitle        = false;
 bool              m_gen_log             = false;
 bool              m_loop                = false;
-RecentFileStore   m_store;
+RecentFileStore   m_file_store;
+RecentDVDStore    m_dvd_store;
 AutoPlaylist      m_playlist;
 bool              m_firstfile           = true;
 
@@ -498,7 +500,8 @@ int main(int argc, char *argv[])
   bool                  m_chapter_seek        = false;
   std::string           m_filename;
   int                   m_track               = -1;
-  bool                  m_isDVD               = false;
+  bool                  m_is_dvd              = false;
+  bool                  m_is_dvd_device       = false;
   OMXDvdPlayer          *m_DvdPlayer          = NULL;
   double                m_incr                = 0;
   double                m_loop_from           = 0;
@@ -970,7 +973,7 @@ int main(int argc, char *argv[])
 
     // check if this is a "link" in the recent file folder
     // if it's a file check it exists
-    if(m_store.checkIfRecentFile(m_filename))
+    if(m_file_store.checkIfRecentFile(m_filename))
     {
       is_local_file = !IsURL(m_filename) && !IsPipe(m_filename);
 
@@ -987,22 +990,27 @@ int main(int argc, char *argv[])
   {
     // Are we dealing with a DVD VIDEO_TS folder or a device file
     CRegExp findvideots = CRegExp(true);
-    findvideots.RegComp("^(.*?/VIDEO_TS|/dev/.*)");
+    findvideots.RegComp("^(.*?/VIDEO_TS|/dev/.*$|.*?/disk[^/]*\\.dmg$)");
     if(findvideots.RegFind(m_filename, 0) > -1)
     {
-      m_isDVD = true;
+      m_is_dvd = true;
+      m_is_dvd_device = true;
       m_filename = findvideots.GetMatch(1);
     }
-    else if(!IsPipe(m_filename))
+    else
     {
       // make a playlist
       m_playlist.readPlaylist(m_filename);
     }
   }
 
+  // read the relevant recent files/dvd store
+  if(m_is_dvd_device) m_dvd_store.readStore();
+  else m_file_store.readStore();
+
   // find seek position
-  if(!IsPipe(m_filename) && m_incr == 0) {
-    m_incr = m_store.getTime(m_filename, m_track);
+  if(!m_is_dvd_device && !IsPipe(m_filename) && m_incr == 0) {
+    m_incr = m_file_store.getTime(m_filename, m_track);
   }
 
   if(m_asked_for_font && !Exists(m_font_path))
@@ -1064,15 +1072,23 @@ int main(int argc, char *argv[])
 
   if(m_filename.substr(m_filename.size()-4, 4) == ".iso"
 	  || m_filename.substr(m_filename.size()-4, 4) == ".dmg")
-	m_isDVD = true;
+	m_is_dvd = true;
 
-  if(m_isDVD)
+  if(m_is_dvd)
   {
-    if(m_track == -1) m_track = 0;
     m_has_external_subtitles = false;
     m_audio_extension = false;
     m_DvdPlayer = new OMXDvdPlayer();
-    if(!m_DvdPlayer->Open(m_filename) || !m_DvdPlayer->OpenTrack(m_track))
+    if(!m_DvdPlayer->Open(m_filename))
+    {
+      g_abort = true;
+      goto do_exit;
+    }
+
+    if(m_is_dvd_device && m_incr == 0)
+      m_incr = m_dvd_store.setCurrentDVD(m_DvdPlayer->GetDVDID(), m_track);
+
+    if(!m_DvdPlayer->OpenTrack(m_track))
     {
       g_abort = true;
       goto do_exit;
@@ -1118,7 +1134,7 @@ int main(int argc, char *argv[])
   if (m_dump_format_exit)
     goto do_exit;
 
-  if(m_isDVD)
+  if(m_is_dvd)
     printf("Playing: %s, Track: %d\n", m_filename.c_str(), m_track + 1);
   else
     printf("Playing: %s\n", m_filename.c_str());
@@ -1314,7 +1330,7 @@ int main(int argc, char *argv[])
   sentStarted = true;
 
   // forget seek time fo all files being played
-  m_store.forget(m_filename);
+  if(!m_is_dvd_device) m_file_store.forget(m_filename);
 
   while(!m_stop)
   {
@@ -1998,7 +2014,7 @@ do_exit:
     if(m_next_prev_file == 0) m_next_prev_file = 1;
 
     // if this is a DVD look for next track
-    if(m_isDVD) {
+    if(m_is_dvd) {
       if(m_DvdPlayer->ChangeTrack(m_next_prev_file, m_track))
       {
         m_firstfile = false;
@@ -2007,19 +2023,22 @@ do_exit:
       }
 
       // no more tracks to play, exit DVD mode
-      m_isDVD = false;
+      m_is_dvd = false;
       delete m_DvdPlayer;
       m_DvdPlayer = NULL;
     }
 
     //play next file in playlist if there is one...
-    if(m_playlist.ChangeFile(m_next_prev_file, m_filename)) {
+    if(!m_is_dvd_device && m_playlist.ChangeFile(m_next_prev_file, m_filename)) {
       m_firstfile = false;
       m_next_prev_file = 0;
       goto change_file;
     }
   } else if(!m_firstfile || t > 5) {
-    m_store.remember(m_filename, m_track, (int)t);
+    if(m_is_dvd_device)
+      m_dvd_store.remember(m_track, (int)t);
+    else
+	  m_file_store.remember(m_filename, m_track, (int)t);
   }
 
   if (m_NativeDeinterlace)
@@ -2051,7 +2070,8 @@ do_exit:
   g_RBP.Deinitialize();
 
   // save recent files
-  m_store.saveStore();
+  if(m_is_dvd_device) m_dvd_store.saveStore();
+  else m_file_store.saveStore();
 
   printf("have a nice day ;)\n");
 
