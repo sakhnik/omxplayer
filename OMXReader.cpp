@@ -373,7 +373,7 @@ bool OMXReader::Open(
     return false;
   }
 
-  if(!GetStreams())
+  if(!GetStreams(dump_format))
   {
     Close();
     return false;
@@ -701,7 +701,7 @@ OMXPacket *OMXReader::Read()
   return m_omx_pkt;
 }
 
-bool OMXReader::GetStreams()
+bool OMXReader::GetStreams(bool dump_format)
 {
   if(!m_pFormatContext)
     return false;
@@ -796,7 +796,7 @@ bool OMXReader::GetStreams()
       if(m_pFormatContext->chapters[i]->title)
         m_chapters[i].name = m_pFormatContext->chapters[i]->title;
 #endif
-      printf("Chapter : \t%d \t%s \t%8.2f\n", i, m_chapters[i].name.c_str(), m_chapters[i].ts);
+      if(dump_format) printf("Chapter : \t%d \t%s \t%8.2f\n", i, m_chapters[i].name.c_str(), m_chapters[i].ts);
     }
   }
 #endif

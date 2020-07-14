@@ -145,7 +145,7 @@ public:
   AVMediaType PacketType(OMXPacket *pkt);
   OMXPacket *Read();
   void Process();
-  bool GetStreams();
+  bool GetStreams(bool dump_format = false);
   void AddStream(int id);
   bool IsActive(int stream_index);
   bool IsActive(OMXStreamType type, int stream_index);
