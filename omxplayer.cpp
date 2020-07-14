@@ -123,6 +123,7 @@ RecentFileStore   m_file_store;
 RecentDVDStore    m_dvd_store;
 AutoPlaylist      m_playlist;
 bool              m_firstfile           = true;
+bool              m_exit_with_error    = false;
 
 enum{ERROR=-1,SUCCESS,ONEBYTE};
 
@@ -151,6 +152,15 @@ void print_version()
   printf("        Build date: %s\n", VERSION_DATE);
   printf("        Version   : %s [%s]\n", VERSION_HASH, VERSION_BRANCH);
   printf("        Repository: %s\n", VERSION_REPO);
+}
+
+// Exit macros for main function
+#define ExitGently() { g_abort = true; goto do_exit; }
+#define ExitGentlyOnError() ExitGentlyOnErrorWithMessage("Exiting on error")
+#define ExitGentlyOnErrorWithMessage(msg) { \
+	puts(msg ": omxplayer.cpp line: __LINE__"); \
+	m_exit_with_error = true; \
+	ExitGently(); \
 }
 
 static void PrintSubtitleInfo()
@@ -666,17 +676,17 @@ int main(int argc, char *argv[])
         break;
       case '3':
         mode = optarg;
-        if(mode != "SBS" && mode != "TB" && mode != "FP")
-        {
-          print_usage();
-          return 0;
-        }
         if(mode == "TB")
           m_3d = CONF_FLAGS_FORMAT_TB;
         else if(mode == "FP")
           m_3d = CONF_FLAGS_FORMAT_FP;
-        else
+        else if(mode == "SBS")
           m_3d = CONF_FLAGS_FORMAT_SBS;
+        else
+        {
+          print_usage();
+          return EXIT_FAILURE;
+        }
         m_config_video.allow_mvc = true;
         break;
       case 'M':
@@ -936,7 +946,7 @@ int main(int argc, char *argv[])
 
   if (optind >= argc) {
     print_usage();
-    return 0;
+    return EXIT_SUCCESS;
   }
 
   m_filename = argv[optind];
@@ -945,9 +955,10 @@ int main(int argc, char *argv[])
   if(m_filename.substr(0, 7) == "file://" )
     m_filename.replace(0, 7, "");
 
-  auto PrintFileNotFound = [](const std::string& path)
+  auto ExitFileNotFound = [](const std::string& path)
   {
     printf("File \"%s\" not found.\n", path.c_str());
+    return EXIT_FAILURE;
   };
 
   bool is_local_file = !IsURL(m_filename) && !IsPipe(m_filename);
@@ -955,10 +966,7 @@ int main(int argc, char *argv[])
   if(is_local_file)
   {
     if(!Exists(m_filename))
-    {
-      PrintFileNotFound(m_filename);
-      return EXIT_FAILURE;
-    }
+      return ExitFileNotFound(m_filename);
 
     // get realpath for file
     char *fp;
@@ -978,10 +986,7 @@ int main(int argc, char *argv[])
       is_local_file = !IsURL(m_filename) && !IsPipe(m_filename);
 
       if(is_local_file && !Exists(m_filename))
-      {
-        PrintFileNotFound(m_filename);
-        return EXIT_FAILURE;
-      }
+        return ExitFileNotFound(m_filename);
     }
   }
 
@@ -1014,22 +1019,13 @@ int main(int argc, char *argv[])
   }
 
   if(m_asked_for_font && !Exists(m_font_path))
-  {
-    PrintFileNotFound(m_font_path);
-    return EXIT_FAILURE;
-  }
+    return ExitFileNotFound(m_font_path);
 
   if(m_asked_for_italic_font && !Exists(m_italic_font_path))
-  {
-    PrintFileNotFound(m_italic_font_path);
-    return EXIT_FAILURE;
-  }
+    return ExitFileNotFound(m_italic_font_path);
 
   if(m_has_external_subtitles && !Exists(m_external_subtitles_path))
-  {
-    PrintFileNotFound(m_external_subtitles_path);
-    return EXIT_FAILURE;
-  }
+    return ExitFileNotFound(m_external_subtitles_path);
 
   DISPLAY_TEXT_LONG("Loading...");
 
@@ -1080,19 +1076,13 @@ int main(int argc, char *argv[])
     m_audio_extension = false;
     m_DvdPlayer = new OMXDvdPlayer();
     if(!m_DvdPlayer->Open(m_filename))
-    {
-      g_abort = true;
-      goto do_exit;
-    }
+      ExitGentlyOnError();
 
     if(m_is_dvd_device && m_incr == 0)
       m_incr = m_dvd_store.setCurrentDVD(m_DvdPlayer->GetDVDID(), m_track);
 
     if(!m_DvdPlayer->OpenTrack(m_track))
-    {
-      g_abort = true;
-      goto do_exit;
-    }
+      ExitGentlyOnError();
   }
   else
   {
@@ -1126,10 +1116,7 @@ int main(int argc, char *argv[])
   change_track:
 
   if(!m_omx_reader.Open(m_filename.c_str(), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie.c_str(), m_user_agent.c_str(), m_lavfdopts.c_str(), m_avdict.c_str(), m_DvdPlayer))
-  {
-    g_abort = true;
-    goto do_exit;
-  }
+    ExitGentlyOnError();
 
   if (m_dump_format_exit)
     goto do_exit;
@@ -1191,16 +1178,10 @@ int main(int argc, char *argv[])
     m_config_video.hdmi_clock_sync = true;
 
   if(!m_av_clock->OMXInitialize())
-  {
-    g_abort = true;
-    goto do_exit;
-  }
+    ExitGentlyOnError();
 
   if(m_config_video.hdmi_clock_sync && !m_av_clock->HDMIClockSync())
-  {
-    g_abort = true;
-    goto do_exit;
-  }
+    ExitGentlyOnError();
 
   m_av_clock->OMXStateIdle();
   m_av_clock->OMXStop();
@@ -1238,20 +1219,13 @@ int main(int argc, char *argv[])
   if (m_orientation >= 0)
     m_config_video.hints.orientation = m_orientation;
   if(m_has_video && !m_player_video.Open(m_av_clock, m_config_video))
-  {
-    g_abort = true;
-    goto do_exit;
-  }
+    ExitGentlyOnError();
 
   if(m_has_subtitle || m_osd)
   {
     std::vector<Subtitle> external_subtitles;
-    if(m_has_external_subtitles &&
-       !ReadSrt(m_external_subtitles_path, external_subtitles))
-    {
-       puts("Unable to read the subtitle file.");
-       goto do_exit;
-    }
+    if(m_has_external_subtitles && !ReadSrt(m_external_subtitles_path, external_subtitles))
+       ExitGentlyOnErrorWithMessage("Unable to read the subtitle file");
 
     if(!m_player_subtitles.Open(m_omx_reader.SubtitleStreamCount(),
                                 std::move(external_subtitles),
@@ -1263,10 +1237,7 @@ int main(int argc, char *argv[])
                                 m_subtitle_lines,
                                 m_config_video.display, m_config_video.layer + 1,
                                 m_av_clock))
-    {
-      g_abort = true;
-      goto do_exit;
-    }
+      ExitGentlyOnError();
     if(m_config_video.dst_rect.x2 > 0 && m_config_video.dst_rect.y2 > 0)
         m_player_subtitles.SetSubtitleRect(m_config_video.dst_rect.x1, m_config_video.dst_rect.y1, m_config_video.dst_rect.x2, m_config_video.dst_rect.y2);
   }
@@ -1308,10 +1279,7 @@ int main(int argc, char *argv[])
     m_config_audio.passthrough = false;
 
   if(m_has_audio && !m_player_audio.Open(m_av_clock, m_config_audio, &m_omx_reader))
-  {
-    g_abort = true;
-    goto do_exit;
-  }
+    ExitGentlyOnError();
 
   if(m_has_audio)
   {
@@ -1738,7 +1706,7 @@ int main(int argc, char *argv[])
 
       // Quick reset to reduce delay during loop & seek.
       if (m_has_video && !m_player_video.Reset())
-        goto do_exit;
+        ExitGentlyOnError();
 
       CLog::Log(LOGDEBUG, "Seeked %.0f %.0f %.0f\n", DVD_MSEC_TO_TIME(seek_pos), startpts, m_av_clock->OMXMediaTime());
 
@@ -1773,10 +1741,7 @@ int main(int argc, char *argv[])
 
     /* player got in an error state */
     if(m_player_audio.Error())
-    {
-      printf("audio player error. emergency exit!!!\n");
-      goto do_exit;
-    }
+      ExitGentlyOnErrorWithMessage("Audio player error");
 
     if (update)
     {
@@ -2074,6 +2039,9 @@ do_exit:
   else m_file_store.saveStore();
 
   printf("have a nice day ;)\n");
+
+  if(m_exit_with_error)
+    return EXIT_FAILURE;
 
   // exit status OMXPlayer defined value on user quit
   // (including a stop caused by SIGTERM or SIGINT)
