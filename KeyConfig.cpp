@@ -10,7 +10,7 @@ using namespace std;
 /* Converts the action string from the config file into 
  * the corresponding enum value
  */
-int convertStringToAction(string str_action)
+int convertStringToAction(const string &str_action)
 {
     if(str_action == "DECREASE_SPEED")
         return KeyConfig::ACTION_DECREASE_SPEED;
@@ -69,39 +69,35 @@ int convertStringToAction(string str_action)
             
     return -1;
 }
-/* Grabs the substring prior to the ':', this is the Action */
-string getActionFromString(string line)
+/* Parses a line from the config file in the mode 'action:key'. Looks up
+the action in the relevant enum array. Returns true on success. */
+bool getActionAndKeyFromString(string line, int &int_action, string &key)
 {
-    string action;
+    string str_action;
+
+    if(line[0] == '#')
+         return false;
+
     unsigned int colonIndex = line.find(":");
     if(colonIndex == string::npos)
-        return "";
+        return false;
 
-    action = line.substr(0,colonIndex);
-
-    return action;
-}
-
-/* Grabs the substring after the ':', this is the Key */
-string getKeyFromString(string line)
-{
-    string key;
-    unsigned int colonIndex = line.find(":");
-    if(colonIndex == string::npos)
-        return "";
-    
+    str_action = line.substr(0,colonIndex);
     key = line.substr(colonIndex+1);
 
-    return key;
+    int_action = convertStringToAction(str_action);
+
+    if(int_action == -1 || key.size() < 1)
+        return false;
+
+    return true;
 }
 
 /* Returns a keymap consisting of the default
  *  keybinds specified with the -k option 
  */
-map<int, int> KeyConfig::buildDefaultKeymap()
+void KeyConfig::buildDefaultKeymap(map<int,int> &keymap)
 {
-    map<int,int> keymap;
-
     keymap['1'] = ACTION_DECREASE_SPEED;
     keymap['2'] = ACTION_INCREASE_SPEED;
     keymap['<'] = ACTION_REWIND;
@@ -134,27 +130,31 @@ map<int, int> KeyConfig::buildDefaultKeymap()
     keymap['v'] = ACTION_STEP;
     keymap['w'] = ACTION_SHOW_SUBTITLES;
     keymap['x'] = ACTION_HIDE_SUBTITLES;
-
-    return keymap;
 }
 
 /* Parses the supplied config file and turns it into a map object.
- * NOTE: Does not work with certain filepath shortcuts (e.g. ~ as user's home)
  */
-map<int, int> KeyConfig::parseConfigFile(string filepath)
+void KeyConfig::parseConfigFile(char *filepath, map<int,int> &keymap)
 {
-    ifstream config_file(filepath.c_str());
-    map<int,int> keymap;
+	// realpath helps parse tildas etc...
+    char *fp;
+    fp = realpath(filepath, NULL);
+    if(fp == NULL) {
+        free(fp);
+        return;
+    }
+
+    ifstream config_file(fp);
+    free(fp);
+
     string line;
+    int key_action;
+    string key;
 
     while(getline(config_file, line))
     {
-        string str_action = getActionFromString(line);
-        string key = getKeyFromString(line);
-
-        if(str_action != "" && key != "" && str_action[0] != '#')
+        if(getActionAndKeyFromString(line, key_action, key))
         {
-            int key_action = convertStringToAction(str_action);
             if(key.substr(0,4) == "left")
             {
                 keymap[KEY_LEFT] = key_action;
@@ -175,14 +175,20 @@ map<int, int> KeyConfig::parseConfigFile(string filepath)
             {
                 keymap[KEY_ESC] = key_action;
             }
-            else if(key.substr(0,3) == "hex")
+            else if(key.substr(0,5) == "space")
             {
-              const char *hex = key.substr(4).c_str();
-              if (hex)
-                keymap[strtoul(hex,0,0)] = key_action;
+                keymap[' '] = key_action;
+            }
+            else if(key.substr(0,3) == "num" || key.substr(0,3) == "hex")
+            {
+              if(key.size() > 4)
+              {
+                int n = strtoul(key.substr(4).c_str(), 0, 0);
+                if (n > 0)
+                  keymap[n] = key_action;
+              }
             }
             else keymap[key[0]] = key_action;
         }
     }
-    return keymap;
 }

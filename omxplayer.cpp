@@ -655,8 +655,8 @@ int main(int argc, char *argv[])
   int c;
   std::string mode;
 
-  //Build default keymap just in case the --key-config option isn't used
-  map<int,int> keymap = KeyConfig::buildDefaultKeymap();
+  // Empty keymap
+  map<int, int> keymap;
 
   while ((c = getopt_long(argc, argv, "wiIhvkn:l:o:cslb::pd3:Myzt:rg", longopts, NULL)) != -1)
   {
@@ -896,7 +896,7 @@ int main(int argc, char *argv[])
         m_blank_background = optarg ? strtoul(optarg, NULL, 0) : 0xff000000;
         break;
       case key_config_opt:
-        keymap = KeyConfig::parseConfigFile(optarg);
+        KeyConfig::parseConfigFile(optarg, keymap);
         break;
       case layer_opt:
         m_config_video.layer = atoi(optarg);
@@ -944,6 +944,10 @@ int main(int argc, char *argv[])
         break;
     }
   }
+
+  // Build default keymap
+  if(keymap.empty())
+    KeyConfig::buildDefaultKeymap(keymap);
 
   if (optind >= argc) {
     print_usage();

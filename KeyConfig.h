@@ -55,6 +55,6 @@ class KeyConfig
     #define KEY_DOWN 0x5b42
     #define KEY_ESC 27
 
-    static std::map<int, int> buildDefaultKeymap();
-    static std::map<int, int> parseConfigFile(std::string filepath);
+    static void buildDefaultKeymap(std::map<int, int> &keymap);
+    static void parseConfigFile(char *filepath, std::map<int, int> &keymap);
 };
