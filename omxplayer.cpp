@@ -1088,8 +1088,15 @@ int main(int argc, char *argv[])
     if(!m_DvdPlayer->Open(m_filename))
       ExitGentlyOnError();
 
+    m_DvdPlayer->enableHeuristicTrackSelection();
+
+	// Was DVD played before?
     if(!m_dump_format_exit && m_is_dvd_device && m_incr == 0)
       m_incr = m_dvd_store.setCurrentDVD(m_DvdPlayer->GetDVDID(), m_track);
+
+	// If m_track is set to -1, look for the first enabled track
+	if(m_track == -1)
+		m_track = m_DvdPlayer->findNextEnabledTrack(-1);
 
     if(!m_DvdPlayer->OpenTrack(m_track))
       ExitGentlyOnError();

@@ -85,6 +85,7 @@ bool OMXDvdPlayer::Open(std::string filename)
 			continue;
 		}
 
+		dvd_info.titles[h].enabled = true;
 		dvd_info.titles[h].vts = title_set_nr;
 		dvd_info.titles[h].length = dvdtime2msec(&pgc->playback_time)/1000.0;
 		dvd_info.titles[h].chapter_count = pgc->nr_of_programs;
@@ -178,9 +179,17 @@ bool OMXDvdPlayer::Open(std::string filename)
 
 bool OMXDvdPlayer::ChangeTrack(int delta, int &t)
 {
-	int ct = current_track + delta;
+	int ct;
+	if(delta == 1)
+		ct = findNextEnabledTrack(t);
+	else if(delta == -1)
+		ct = findPrevEnabledTrack(t);
+	else {
+		puts("ChangeTrack delta can be only 1 or -1");
+		return false;
+	}
 
-	if(ct < 0 || ct > dvd_info.title_count - 1)
+	if(ct == -1)
 		return false;
 
 	bool r = OpenTrack(ct);
@@ -188,14 +197,10 @@ bool OMXDvdPlayer::ChangeTrack(int delta, int &t)
 	return r;
 }
 
-bool OMXDvdPlayer::OpenTrack(int &ct)
+bool OMXDvdPlayer::OpenTrack(int ct)
 {
 	if(m_open == true)
 		CloseTrack();
-
-	// In future setting ct to -1 will invoke heuristics to avoid too short and composite tracks
-	if(ct == -1)
-		ct = 0;
 
 	if(ct < 0 || ct > dvd_info.title_count - 1)
 		return false;
@@ -405,4 +410,50 @@ void OMXDvdPlayer::get_disc_id()
 		sprintf(hex + 2 * i, "%02x", buf[i]);
 
 	dvd_info.disc_checksum = hex;
+}
+
+//enable heuristic track skip
+void OMXDvdPlayer::enableHeuristicTrackSelection()
+{
+	// Disable tracks which are shorter than two minutes
+	for(int i = 0; i < dvd_info.title_count; i++) {
+		if(dvd_info.titles[i].length < 120) {
+			dvd_info.titles[i].enabled = false;
+		}
+	}
+
+	// Search for and disable composite tracks
+	for(int i = 0; i < dvd_info.title_count - 1; i++) {
+		for(int j = i + 1; j < dvd_info.title_count; j++) {
+			if(dvd_info.titles[i].vts == dvd_info.titles[j].vts
+					&& dvd_info.titles[i].first_sector == dvd_info.titles[j].first_sector
+					&& dvd_info.titles[i].enabled && dvd_info.titles[j].enabled) {
+
+				if(dvd_info.titles[i].length > dvd_info.titles[j].length)
+					dvd_info.titles[i].enabled = false;
+				else
+					dvd_info.titles[j].enabled = false;
+			}
+		}
+	}
+}
+
+int OMXDvdPlayer::findNextEnabledTrack(int i)
+{
+	for(i++; i < dvd_info.title_count; i++) {
+		if(dvd_info.titles[i].enabled)
+			return i;
+		else printf("Skipping Track %d\n", i+1);
+	}
+	return -1;
+}
+
+int OMXDvdPlayer::findPrevEnabledTrack(int i)
+{
+	for(i--; i > -1; i--) {
+		if(dvd_info.titles[i].enabled)
+			return i;
+		else printf("Skipping Track %d\n", i+1);
+	}
+	return -1;
 }
