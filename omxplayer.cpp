@@ -743,6 +743,7 @@ int main(int argc, char *argv[])
       case 'i':
         m_dump_format      = true;
         m_dump_format_exit = true;
+        m_osd              = false;
         break;
       case 'I':
         m_dump_format = true;
@@ -1002,7 +1003,7 @@ int main(int argc, char *argv[])
       m_is_dvd_device = true;
       m_filename = findvideots.GetMatch(1);
     }
-    else
+    else if(!m_dump_format_exit)
     {
       // make a playlist
       m_playlist.readPlaylist(m_filename);
@@ -1010,12 +1011,21 @@ int main(int argc, char *argv[])
   }
 
   // read the relevant recent files/dvd store
-  if(m_is_dvd_device) m_dvd_store.readStore();
-  else m_file_store.readStore();
+  if(!m_dump_format_exit)
+  {
+    if(m_is_dvd_device)
+    {
+      m_dvd_store.readStore();
+    }
+    else
+    {
+      m_file_store.readStore();
 
-  // find seek position
-  if(!m_is_dvd_device && !IsPipe(m_filename) && m_incr == 0) {
-    m_incr = m_file_store.getTime(m_filename, m_track);
+      // find seek position
+      if(!IsPipe(m_filename) && m_incr == 0) {
+        m_incr = m_file_store.getTime(m_filename, m_track);
+      }
+    }
   }
 
   if(m_asked_for_font && !Exists(m_font_path))
@@ -1078,7 +1088,7 @@ int main(int argc, char *argv[])
     if(!m_DvdPlayer->Open(m_filename))
       ExitGentlyOnError();
 
-    if(m_is_dvd_device && m_incr == 0)
+    if(!m_dump_format_exit && m_is_dvd_device && m_incr == 0)
       m_incr = m_dvd_store.setCurrentDVD(m_DvdPlayer->GetDVDID(), m_track);
 
     if(!m_DvdPlayer->OpenTrack(m_track))
@@ -1119,7 +1129,7 @@ int main(int argc, char *argv[])
     ExitGentlyOnError();
 
   if (m_dump_format_exit)
-    goto do_exit;
+    ExitGently();
 
   if(m_is_dvd)
     printf("Playing: %s, Track: %d\n", m_filename.c_str(), m_track + 1);
@@ -2040,8 +2050,13 @@ do_exit:
 
   printf("have a nice day ;)\n");
 
+  // Exit on failure
   if(m_exit_with_error)
     return EXIT_FAILURE;
+
+  // If user has chosen to dump format exit with sucess
+  if(m_dump_format_exit)
+    return EXIT_SUCCESS;
 
   // exit status OMXPlayer defined value on user quit
   // (including a stop caused by SIGTERM or SIGINT)
