@@ -163,6 +163,20 @@ void print_version()
 	ExitGently(); \
 }
 
+static void UpdateRaspicastMetaData(string msg)
+{
+	const char *file = "/dev/shm/.r_info";
+
+	FILE *fp;
+	fp = fopen(file, "w");
+	if(fp == NULL) return;
+
+	fputs("local\n", fp);
+	fputs(msg.c_str(), fp);
+	fputs("\n", fp);
+	fclose(fp);
+}
+
 static void PrintSubtitleInfo()
 {
   auto count = m_omx_reader.SubtitleStreamCount();
@@ -1143,9 +1157,18 @@ int main(int argc, char *argv[])
     ExitGently();
 
   if(m_is_dvd)
+  {
     printf("Playing: %s, Track: %d\n", m_filename.c_str(), m_track + 1);
+
+    UpdateRaspicastMetaData(m_DvdPlayer->GetTitle() + " - Track " + to_string(m_track + 1));
+  }
   else
+  {
     printf("Playing: %s\n", m_filename.c_str());
+
+    int lastSlash = m_filename.rfind("/");
+    UpdateRaspicastMetaData(m_filename.substr(lastSlash + 1));
+  }
 
   // auto select an audio stream
   // Avoid defaulting to narrative description
