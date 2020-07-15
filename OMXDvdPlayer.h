@@ -9,7 +9,7 @@ struct OMXStream;
 class OMXDvdPlayer
 {
   public:
-	bool Open(std::string filename);
+	bool Open(const std::string &filename);
 	~OMXDvdPlayer();
 
 	void CloseTrack();
@@ -26,7 +26,7 @@ class OMXDvdPlayer
 	int GetCurrentTrack() const { return current_track; }
 	void GetStreamInfo(OMXStream *stream);
 	bool MetaDataCheck(int audiostream_count, int subtitle_count);
-	std::string GetDVDID() const { return dvd_info.disc_checksum; }
+	std::string GetDVDID() const { return disc_checksum; }
 	void enableHeuristicTrackSelection();
 	int findNextEnabledTrack(int i);
 	int findPrevEnabledTrack(int i);
@@ -34,7 +34,7 @@ class OMXDvdPlayer
   private:
 	int dvdtime2msec(dvd_time_t *dt);
 	void get_title_name();
-	void get_disc_id();
+	void get_disc_checksum();
 
 	bool m_open = false;
 	bool m_allocated = false;
@@ -45,28 +45,26 @@ class OMXDvdPlayer
 	int current_track;
 	int total_blocks;
 
-	struct dvd_info {
-		std::string device;
-		std::string disc_title;
-		std::string disc_checksum;
-		int title_count;
-		struct title_info {
-		    bool enabled;
-			int vts;
-			float length;
-			int chapter_count;
-			int *chapters;
-			int audiostream_count;
-			int subtitle_count;
-			struct stream_info {
-				int index;
-				int id;
-				uint16_t lang;
-			} *streams;
-			int first_sector;
-			int last_sector;
-		} *titles;
-	} dvd_info;
+	std::string device_path;
+	std::string disc_title;
+	std::string disc_checksum;
+	int title_count;
+	struct title_info {
+		bool enabled;
+		int vts;
+		float length;
+		int chapter_count;
+		int *chapters;
+		int audiostream_count;
+		int subtitle_count;
+		struct stream_info {
+			int index;
+			int id;
+			uint16_t lang;
+		} *streams;
+		int first_sector;
+		int last_sector;
+	} *titles;
 
 	double frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
 
