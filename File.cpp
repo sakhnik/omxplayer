@@ -166,7 +166,7 @@ int CFile::IoControl(EIoControl request, void* param)
 bool CFile::IsEOF()
 {
   if (!m_pFile)
-    return -1;
+    return false;
 
   if (m_bPipe)
     return false;

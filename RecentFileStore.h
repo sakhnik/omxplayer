@@ -47,4 +47,5 @@ private:
 
 	map<string, fileInfo> store;
 	string recent_dir;
+	bool m_init = false;
 };

@@ -66,6 +66,8 @@ void RecentFileStore::readStore()
 		}
 		s.close();
 	}
+
+	m_init = true;
 }
 
 bool RecentFileStore::checkIfRecentFile(string &filename)
@@ -155,6 +157,8 @@ bool RecentFileStore::fileinfoCmp(pair<string, fileInfo> const &a, pair<string, 
 
 void RecentFileStore::saveStore()
 {
+	if(!m_init) return;
+
 	// delete all existing link files
 	clearRecents();
 

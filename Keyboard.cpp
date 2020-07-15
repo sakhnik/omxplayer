@@ -161,12 +161,12 @@ fail:
     dbus_message_unref(reply);
 }
 
-void Keyboard::setKeymap(std::map<int,int> keymap) 
+void Keyboard::setKeymap(const std::map<int,int> &keymap)
 {
-  m_keymap = keymap;
+  m_keymap = std::move(keymap);
 }
 
-void Keyboard::setDbusName(std::string dbus_name)
+void Keyboard::setDbusName(const std::string &dbus_name)
 {
   m_dbus_name = dbus_name;
 }

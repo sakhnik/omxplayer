@@ -54,6 +54,8 @@ void RecentDVDStore::readStore()
 	   }
 	}
 	s.close();
+
+	m_init = true;
 }
 
 int RecentDVDStore::setCurrentDVD(string key, int &track)
@@ -89,6 +91,8 @@ bool RecentDVDStore::DVDInfoCmp(pair<string, DVDInfo> const &a, pair<string, DVD
 
 void RecentDVDStore::saveStore()
 {
+	if(!m_init) return;
+
 	// create a sorted vector
 	vector<pair<string, DVDInfo> > vector_store;
 	vector_store.assign(store.begin(), store.end());

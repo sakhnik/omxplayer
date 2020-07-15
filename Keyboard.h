@@ -19,8 +19,8 @@
   ~Keyboard();
   void Close();
   void Process();
-  void setKeymap(std::map<int,int> keymap);
-  void setDbusName(std::string dbus_name);
+  void setKeymap(const std::map<int,int> &keymap);
+  void setDbusName(const std::string &dbus_name);
   void Sleep(unsigned int dwMilliSeconds);
   int getEvent();
  private:

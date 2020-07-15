@@ -44,4 +44,5 @@ private:
 	map<string, DVDInfo> store;
 	string recent_dvd_file;
 	string current_dvd;
+	bool m_init = false;
 };
