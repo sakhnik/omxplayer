@@ -1096,7 +1096,7 @@ int main(int argc, char *argv[])
 
 	// Was DVD played before?
     if(!m_dump_format_exit && m_is_dvd_device && m_incr == 0)
-      m_incr = m_dvd_store.setCurrentDVD(m_DvdPlayer->GetDVDID(), m_track);
+      m_incr = m_dvd_store.setCurrentDVD(m_DvdPlayer->GetID(), m_track);
 
 	// If m_track is set to -1, look for the first enabled track
 	if(m_track == -1)

@@ -39,8 +39,8 @@ bool OMXDvdPlayer::Open(const std::string &filename)
 	}
 
 	// Get device name and checksum
-	get_title_name();
-	get_disc_checksum();
+	read_title_name();
+	read_disc_checksum();
 
 	// Open dvd meta data header
 	ifo_handle_t *ifo_zero, **ifo;
@@ -369,7 +369,7 @@ int OMXDvdPlayer::dvdtime2msec(dvd_time_t *dt)
 /*
  *  The following method is based on code from vobcopy, by Robos, with thanks.
  */
-void OMXDvdPlayer::get_title_name()
+void OMXDvdPlayer::read_title_name()
 {
 	FILE *filehandle = 0;
 	char title[33];
@@ -388,14 +388,22 @@ void OMXDvdPlayer::get_title_name()
 
 	fclose (filehandle);
 
+	// Add terminating null char
 	title[32] = '\0';
-	while(i-- > 2)
-		if(title[i] == ' ') title[i] = '\0';
+
+	// trim end whitespace
+	while(--i > -1 && title[i] == ' ')
+		title[i] = '\0';
+
+	// Replace underscores with spaces
+	i++;
+	while(--i > -1)
+		if(title[i] == '_') title[i] = ' ';
 
 	disc_title = title;
 }
 
-void OMXDvdPlayer::get_disc_checksum()
+void OMXDvdPlayer::read_disc_checksum()
 {
 	unsigned char buf[16];
 	if (DVDDiscID(dvd_device, buf) == -1) return;

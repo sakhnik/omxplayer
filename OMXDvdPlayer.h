@@ -26,15 +26,16 @@ class OMXDvdPlayer
 	int GetCurrentTrack() const { return current_track; }
 	void GetStreamInfo(OMXStream *stream);
 	bool MetaDataCheck(int audiostream_count, int subtitle_count);
-	std::string GetDVDID() const { return disc_checksum; }
+	std::string GetID() const { return disc_checksum; }
+	std::string GetTitle() const { return disc_title; }
 	void enableHeuristicTrackSelection();
 	int findNextEnabledTrack(int i);
 	int findPrevEnabledTrack(int i);
 
   private:
 	int dvdtime2msec(dvd_time_t *dt);
-	void get_title_name();
-	void get_disc_checksum();
+	void read_title_name();
+	void read_disc_checksum();
 
 	bool m_open = false;
 	bool m_allocated = false;
