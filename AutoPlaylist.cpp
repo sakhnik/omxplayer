@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <locale>
+
 #include <dirent.h>
 
 #include "utils/RegExp.h"
@@ -29,8 +31,6 @@ using namespace std;
 
 void AutoPlaylist::readPlaylist(string &filename)
 {
-	vector<pair<string,string>> filelist;
-
 	// reset object
 	playlist_pos = -1;
 	playlist.clear();
@@ -53,32 +53,27 @@ void AutoPlaylist::readPlaylist(string &filename)
 		"m2ts|m2v|m4p|m4v|mkv|mov|mp2|mp4|mpe|mpeg|mpg|mpv|mts|mxf|nsv|ogg|"
 		"ogv|qt|rm|rmvb|roq|svi|ts|vob|webm|wmv|yuv|iso|dmg)$");
 
+	// Quit if file being played doesn't have one of the above filename extensions
+	if(fnameext_match.RegFind(basename, 0) == -1) {
+		puts("Disabling playlist as filename extension not recognised");
+		return;
+	}
+
 	while ((ent = readdir(dir)) != NULL) {
 		if(ent->d_type != 4 && ent->d_name[0] != '.' &&
 				fnameext_match.RegFind(ent->d_name, 0) > -1) {
-			string a = ent->d_name;
-			string b = a;
 
-			// lowercase
-			transform(b.begin(), b.end(), b.begin(),
-				[](unsigned char c){ return tolower(c); });
-
-			filelist.emplace_back(move(b), move(a));
+			playlist.push_back(ent->d_name);
 		}
 	}
 
-	// sort by lower case
-	sort(filelist.begin(), filelist.end());
-
-	// shift second part of pair to playlist
-	playlist.resize(filelist.size());
-	int len = playlist.size();
-	for(int i = 0; i < len; i++) {
-		playlist[i] = move(filelist[i].second);
-	}
+	// In English and most other European langauges, this should sort by lower case without
+	// regard to diacritics
+	const locale z = locale("");
+	sort(playlist.begin(), playlist.end(), locale(""));
 
 	// search for file we started with
-	for(int i = 0; i < len; i++) {
+	for(uint i = 0; i < playlist.size(); i++) {
 		if(playlist[i] == basename) {
 			playlist_pos = i;
 			return;
