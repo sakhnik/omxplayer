@@ -1,22 +1,32 @@
 omxplayer(1) -- Raspberry Pi command line OMX player
 ====================================================
 
-OMXPlayer is a command-line video player for the Raspberry Pi. It can play
-video directly from the command line and **does not require a
-[desktop](https://en.wikipedia.org/wiki/Desktop_environment)**. OMXPlayer
-leverages the [OpenMAX](https://en.wikipedia.org/wiki/OpenMAX)
-[API](https://en.wikipedia.org/wiki/Application_programming_interface) to make
-use of the hardware video decoder in the
+OMXPlayer is a command-line video player for the Raspberry Pi. It plays
+video directly from the command line and plays outside your
+[desktop environment](https://en.wikipedia.org/wiki/Desktop_environment). OMXPlayer uses the
+[OpenMAX](https://en.wikipedia.org/wiki/OpenMAX) API to access the hardware video decoder in the
 [GPU](https://en.wikipedia.org/wiki/Graphics_processing_unit). Hardware
-acceleration along with direct command-line use on
-[ARM](https://en.wikipedia.org/wiki/ARM_architecture) silicon allows ultra
-low overhead, low power video playback. OMXPlayer was developed as a testbed
-for the [XBMC](https://en.wikipedia.org/wiki/Kodi_(software)) Raspberry Pi
-implementation and is quite handy to use standalone.
+acceleration along with command-line use allows ultra low overhead, low power video playback. It
+was originally developed as a testbed for [Kodi](https://en.wikipedia.org/wiki/Kodi_(software))
+on the Raspberry Pi.
+
+This fork adds the following features:
+
+* **Position remembering**: If you stop playing a file, OMXPlayer will remember where you
+left off and begin playing from that position next time you play the file.
+
+* **Auto-playlists**: OMXPlayer will automatically play the next file in the folder when the
+previous file finished.
+
+* **Recently played folder**: OMXPlayer creates a folder called OMXPlayerRecent off your home
+directory with links to 20 most recently played files.
+
+* **Experimental DVD support**: OMXPlayer can play iso/dmg DVD files as well DVD block devices.
+At the moment seeking can be a little glitchy and subtitles are not supported.
 
 ## DOWNLOADING
 
-    git clone https://github.com/popcornmix/omxplayer.git
+    git clone https://github.com/mjfwalsh/omxplayer.git
 
 ## HELP AND DOCS
 
@@ -83,6 +93,7 @@ Usage: omxplayer [OPTIONS] [FILE]
     -r  --refresh               Adjust framerate/resolution to video
     -g  --genlog                Generate log file
     -l  --pos n                 Start position (hh:mm:ss)
+        --track n               Play a DVD track (natural number, default 1)
     -b  --blank[=0xAARRGGBB]    Set the video background color to black (or optional ARGB value)
         --loop                  Loop file. Ignored if file not seekable
         --no-boost-on-downmix   Don't boost volume when downmixing
@@ -139,6 +150,8 @@ Key bindings to control omxplayer while playing:
     k           next audio stream
     i           previous chapter
     o           next chapter
+    9           previous file/track
+    0           next file/track
     n           previous subtitle stream
     m           next subtitle stream
     s           toggle subtitles
@@ -152,8 +165,8 @@ Key bindings to control omxplayer while playing:
     + / =       increase volume
     left arrow  seek -30 seconds
     right arrow seek +30 seconds
-    down arrow  seek -600 seconds
-    up arrow    seek +600 seconds
+    down arrow  seek -10 minutes
+    up arrow    seek +10 minutes
 
 ## KEY CONFIG SYNTAX
 
@@ -170,6 +183,8 @@ The list of valid [action]s roughly corresponds to the list of default key bindi
     NEXT_AUDIO
     PREVIOUS_CHAPTER
     NEXT_CHAPTER
+    PREVIOUS_FILE
+    NEXT_FILE
     PREVIOUS_SUBTITLE
     NEXT_SUBTITLE
     TOGGLE_SUBTITLE
@@ -192,16 +207,17 @@ Valid [key]s include all alpha-numeric characters and most symbols, as well as:
     up
     down
     esc
-    hex [keycode]
+    space
+    num [decimal or hex keycode]
 
 For example:
 
     EXIT:esc
     PAUSE:p
-    #Note that this next line has a space after the :
-    PAUSE: 
+    PAUSE:space
     REWIND:left
-    SEEK_FORWARD_SMALL:hex 0x4f43
+    SEEK_FORWARD_SMALL:num 0x4f43
+    NEXT_FILE:num 63
     EXIT:q
 
 ## DBUS CONTROL
