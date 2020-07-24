@@ -30,7 +30,8 @@
 
 void openDisplay(int display_num, int &screen_width, int &screen_height);
 
-void createImageLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int32_t width, int32_t height);
+void createImageLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int32_t width,
+	int32_t height, int &image_size);
 
 void changeImageData(void *image_data);
 

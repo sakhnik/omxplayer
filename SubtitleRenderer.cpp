@@ -14,13 +14,6 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_m_fon
   m_ghost_box(box_opacity),
   m_max_lines(lines)
 {
-	printf("  display_num: %d\n", display_num);
-	printf("    layer_num: %d\n", layer_num);
-	printf("r_m_font_size: %f\n", r_m_font_size);
-	puts(centered ? "     centered: yes" : "     centered: no");
-	puts(box_opacity ? "  box_opacity: yes" : "  box_opacity: no");
-	printf("        lines: %d\n", lines);
-
 	int screen_width, screen_height;
 	openDisplay(display_num, screen_width, screen_height);
 
@@ -51,26 +44,21 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_m_fon
 	// bottom margin (relative to top)
 	int top_margin = screen_height - line_height - m_image_height;
 
-	// Start a blank cairo drawing surface
-	createBlankSurface();
-
 	// Create image layer
-	createImageLayer(layer_num, margin_left, top_margin, m_image_width, m_image_height);
-}
+	createImageLayer(layer_num, margin_left, top_margin, m_image_width, m_image_height, m_image_size);
 
-void SubtitleRenderer::createBlankSurface()
-{
-	m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, m_image_width, m_image_height);
-	m_cr = cairo_create(m_surface);
-	m_surface_is_blank = true;
+	// and a blank slate
+	m_blank_image = (unsigned char *)malloc(m_image_size);
 }
 
 void SubtitleRenderer::prepare(vector<string> &lines)
 {
-	if(!m_surface_is_blank) resetSurface();
+	if(m_prepared) unprepare();
+
+	m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, m_image_width, m_image_height);
+	m_cr = cairo_create(m_surface);
 
 	cairo_select_font_face(m_cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-
 	cairo_set_font_size(m_cr, m_font_size);
 
 	double cursor_y_position = m_image_height - m_line_spacing;
@@ -83,6 +71,7 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 	// Limit the number of line
 	int no_of_lines = lines.size();
 	if(no_of_lines > m_max_lines) no_of_lines = m_max_lines;
+
 	for(int i = no_of_lines - 1; i > -1; i--) {
 		cairo_text_extents_t extents;
 		cairo_text_extents(m_cr, lines[i].c_str(), &extents);
@@ -115,52 +104,35 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 		cursor_y_position -= m_font_size + m_line_spacing;
 	}
 
-	// get data pointer
-	int stride = cairo_image_surface_get_stride(m_surface);
-	int height = cairo_image_surface_get_height(m_surface);
-	image_size = stride * height;
-
-	m_surface_is_blank = false;
+	m_prepared = true;
 }
 
 void SubtitleRenderer::show_next()
 {
-	if(!m_surface_is_blank) {
-		copySurfaceToScreen();
-		resetSurface();
+	if(m_prepared) {
+		unsigned char *image_data = cairo_image_surface_get_data(m_surface);
+		changeImageData(image_data);
+		unprepare();
 	}
 }
 
 void SubtitleRenderer::hide()
 {
-	copySurfaceToScreen();
-	if(!m_surface_is_blank)
-		resetSurface();
+	changeImageData(m_blank_image);
 }
 
-void SubtitleRenderer::copySurfaceToScreen()
+void SubtitleRenderer::unprepare()
 {
-	unsigned char* image_data = cairo_image_surface_get_data(m_surface);
-	changeImageData(image_data);
-}
+	if(!m_prepared) return;
 
-
-void SubtitleRenderer::resetSurface()
-{
-	if(m_surface_is_blank) return;
-
-	deleteSurface();
-	createBlankSurface();
-}
-
-void SubtitleRenderer::deleteSurface()
-{
 	cairo_destroy(m_cr);
 	cairo_surface_destroy(m_surface);
+	m_prepared = false;
 }
 
 SubtitleRenderer::~SubtitleRenderer()
 {
-	deleteSurface();
+	unprepare();
 	removeImageLayer();
+	free(m_blank_image);
 }

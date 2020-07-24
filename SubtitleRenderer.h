@@ -20,21 +20,16 @@ class SubtitleRenderer {
 		void prepare(vector<string> &lines);
 		void show_next();
 		void hide();
-		void unprepare() { resetSurface(); };
+		void unprepare();
 
 	private:
-		void resetSurface();
-		void copySurfaceToScreen();
-		void createBlankSurface();
-		void deleteSurface();
+		bool m_prepared = false;
+		int m_image_size;
+		unsigned char *m_blank_image;
 
 		// cairo stuff
 		cairo_surface_t *m_surface;
 		cairo_t *m_cr;
-		bool m_surface_is_blank = true;
-
-		int image_size = 0;
-		bool m_active_surface = false;
 
 		// positional elements
 		int m_font_size;

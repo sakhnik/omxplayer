@@ -107,7 +107,7 @@ void setImageOffset(int32_t xOffset, int32_t yOffset)
 }
 
 void createImageLayer(int32_t layer, int32_t margin_left,
-	int32_t margin_top, int32_t width, int32_t height)
+	int32_t margin_top, int32_t width, int32_t height, int &image_size)
 {
 	// Init image note dimensions should be divisible by 16
     assert(width % 16 == 0);
@@ -144,6 +144,9 @@ void createImageLayer(int32_t layer, int32_t margin_left,
 
     int result = vc_dispmanx_update_submit_sync(m_update);
     assert(result == 0);
+
+    // set image size
+    image_size = image_layer.image.size;
 }
 
 
