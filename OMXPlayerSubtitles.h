@@ -41,8 +41,6 @@ public:
   ~OMXPlayerSubtitles() BOOST_NOEXCEPT;
   bool Open(size_t stream_count,
             std::vector<Subtitle>&& external_subtitles,
-            const std::string& font_path,
-            const std::string& italic_font_path,
             float font_size,
             bool centered,
             bool ghost_box,
@@ -91,8 +89,6 @@ public:
 
   bool AddPacket(OMXPacket *pkt, size_t stream_index) BOOST_NOEXCEPT;
 
-  void SetSubtitleRect(int x1, int y1, int x2, int y2) BOOST_NOEXCEPT;
-
 private:
   struct Message {
     struct Stop {};
@@ -139,9 +135,7 @@ private:
   }
 
   void Process();
-  void RenderLoop(const std::string& font_path,
-                  const std::string& italic_font_path,
-                  float font_size,
+  void RenderLoop(float font_size,
                   bool centered,
                   bool ghost_box,
                   unsigned int lines,
@@ -158,15 +152,12 @@ private:
           Message::Touch,
           Message::SetPaused,
           Message::SetDelay,
-          Message::DisplayText,
-          Message::SetRect>                     m_mailbox;
+          Message::DisplayText>                 m_mailbox;
   bool                                          m_visible;
   bool                                          m_use_external_subtitles;
   size_t                                        m_active_index;
   int                                           m_delay;
   std::atomic<bool>                             m_thread_stopped;
-  std::string                                   m_font_path;
-  std::string                                   m_italic_font_path;
   float                                         m_font_size;
   bool                                          m_centered;
   bool                                          m_ghost_box;

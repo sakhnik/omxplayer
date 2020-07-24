@@ -88,11 +88,7 @@ bool              m_osd                 = !is_model_pi4() && !is_fkms_active();
 bool              m_no_keys             = false;
 std::string       m_external_subtitles_path;
 bool              m_has_external_subtitles = false;
-std::string       m_font_path           = "/usr/share/fonts/truetype/freefont/FreeSans.ttf";
-std::string       m_italic_font_path    = "/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf";
 std::string       m_dbus_name           = "org.mpris.MediaPlayer2.omxplayer";
-bool              m_asked_for_font      = false;
-bool              m_asked_for_italic_font = false;
 float             m_font_size           = 0.055f;
 bool              m_centered            = false;
 bool              m_ghost_box           = true;
@@ -553,8 +549,6 @@ int main(int argc, char *argv[])
   bool                   m_audio_extension     = false;
   int                    m_next_prev_file      = 0;
 
-  const int font_opt        = 0x100;
-  const int italic_font_opt = 0x201;
   const int font_size_opt   = 0x101;
   const int align_opt       = 0x102;
   const int no_ghost_box_opt = 0x203;
@@ -622,8 +616,6 @@ int main(int argc, char *argv[])
     { "sid",          required_argument,  NULL,          't' },
     { "pos",          required_argument,  NULL,          'l' },    
     { "blank",        optional_argument,  NULL,          'b' },
-    { "font",         required_argument,  NULL,          font_opt },
-    { "italic-font",  required_argument,  NULL,          italic_font_opt },
     { "font-size",    required_argument,  NULL,          font_size_opt },
     { "align",        required_argument,  NULL,          align_opt },
     { "no-ghost-box", no_argument,        NULL,          no_ghost_box_opt },
@@ -792,14 +784,6 @@ int main(int argc, char *argv[])
       case no_keys_opt:
         m_no_keys = true;
         break;
-      case font_opt:
-        m_font_path = optarg;
-        m_asked_for_font = true;
-        break;
-      case italic_font_opt:
-        m_italic_font_path = optarg;
-        m_asked_for_italic_font = true;
-        break;
       case font_size_opt:
         {
           const int thousands = atoi(optarg);
@@ -820,14 +804,6 @@ int main(int argc, char *argv[])
         break;
       case lines_opt:
         m_subtitle_lines = std::max(atoi(optarg), 1);
-        break;
-      case pos_opt:
-        sscanf(optarg, "%f %f %f %f", &m_config_video.dst_rect.x1, &m_config_video.dst_rect.y1, &m_config_video.dst_rect.x2, &m_config_video.dst_rect.y2) == 4 ||
-        sscanf(optarg, "%f,%f,%f,%f", &m_config_video.dst_rect.x1, &m_config_video.dst_rect.y1, &m_config_video.dst_rect.x2, &m_config_video.dst_rect.y2);
-        break;
-      case crop_opt:
-        sscanf(optarg, "%f %f %f %f", &m_config_video.src_rect.x1, &m_config_video.src_rect.y1, &m_config_video.src_rect.x2, &m_config_video.src_rect.y2) == 4 ||
-        sscanf(optarg, "%f,%f,%f,%f", &m_config_video.src_rect.x1, &m_config_video.src_rect.y1, &m_config_video.src_rect.x2, &m_config_video.src_rect.y2);
         break;
       case aspect_mode_opt:
         if (optarg) {
@@ -1045,12 +1021,6 @@ int main(int argc, char *argv[])
       }
     }
   }
-
-  if(m_asked_for_font && !Exists(m_font_path))
-    return ExitFileNotFound(m_font_path);
-
-  if(m_asked_for_italic_font && !Exists(m_italic_font_path))
-    return ExitFileNotFound(m_italic_font_path);
 
   if(m_has_external_subtitles && !Exists(m_external_subtitles_path))
     return ExitFileNotFound(m_external_subtitles_path);
@@ -1273,8 +1243,6 @@ int main(int argc, char *argv[])
 
     if(!m_player_subtitles.Open(m_omx_reader.SubtitleStreamCount(),
                                 std::move(external_subtitles),
-                                m_font_path,
-                                m_italic_font_path,
                                 m_font_size,
                                 m_centered,
                                 m_ghost_box,
@@ -1282,8 +1250,6 @@ int main(int argc, char *argv[])
                                 m_config_video.display, m_config_video.layer + 1,
                                 m_av_clock))
       ExitGentlyOnError();
-    if(m_config_video.dst_rect.x2 > 0 && m_config_video.dst_rect.y2 > 0)
-        m_player_subtitles.SetSubtitleRect(m_config_video.dst_rect.x1, m_config_video.dst_rect.y1, m_config_video.dst_rect.x2, m_config_video.dst_rect.y2);
   }
 
   if(m_has_subtitle)
@@ -1658,15 +1624,6 @@ int main(int argc, char *argv[])
           DISPLAY_TEXT_SHORT(strprintf("Play\n%02d:%02d:%02d / %02d:%02d:%02d",
             (t/3600), (t/60)%60, t%60, (dur/3600), (dur/60)%60, dur%60));
         }
-        break;
-      case KeyConfig::ACTION_MOVE_VIDEO:
-        sscanf(result.getWinArg(), "%f %f %f %f", &m_config_video.dst_rect.x1, &m_config_video.dst_rect.y1, &m_config_video.dst_rect.x2, &m_config_video.dst_rect.y2);
-        m_player_video.SetVideoRect(m_config_video.src_rect, m_config_video.dst_rect);
-        m_player_subtitles.SetSubtitleRect(m_config_video.dst_rect.x1, m_config_video.dst_rect.y1, m_config_video.dst_rect.x2, m_config_video.dst_rect.y2);
-        break;
-      case KeyConfig::ACTION_CROP_VIDEO:
-        sscanf(result.getWinArg(), "%f %f %f %f", &m_config_video.src_rect.x1, &m_config_video.src_rect.y1, &m_config_video.src_rect.x2, &m_config_video.src_rect.y2);
-        m_player_video.SetVideoRect(m_config_video.src_rect, m_config_video.dst_rect);
         break;
       case KeyConfig::ACTION_HIDE_VIDEO:
         // set alpha to minimum

@@ -42,7 +42,7 @@ class BoxRenderer {
   VGPaint paint_;
 
 public:
-  BoxRenderer(unsigned int opacity) {
+  BoxRenderer(bool opacity) {
     path_ = vgCreatePath(VG_PATH_FORMAT_STANDARD, VG_PATH_DATATYPE_F,
                         1.0, 0.0,
                         0, 0,
@@ -52,7 +52,7 @@ public:
     paint_ = vgCreatePaint();
     assert(paint_);
 
-    vgSetColor(paint_, opacity);
+    vgSetColor(paint_, opacity ? 0x80 : 0);
     assert(!vgGetError());
   }
 
@@ -262,14 +262,9 @@ SubtitleRenderer::~SubtitleRenderer() BOOST_NOEXCEPT {
 
 SubtitleRenderer::
 SubtitleRenderer(int display, int layer,
-                 const std::string& font_path,
-                 const std::string& italic_font_path,
                  float font_size,
-                 float margin_left,
-                 float margin_bottom,
                  bool centered,
-                 unsigned int white_level,
-                 unsigned int box_opacity,
+                 bool box_opacity,
                  unsigned int lines)
 : prepared_(),
   dispman_element_(),
@@ -284,11 +279,16 @@ SubtitleRenderer(int display, int layer,
   ft_face_italic_(),
   ft_stroker_(),
   centered_(centered),
-  white_level_(white_level),
   box_opacity_(box_opacity),
   font_size_(font_size)
 {
   try {
+
+	float margin_left = 0.01f;
+	float margin_bottom = 0.06f;
+
+    std::string font_path = "/usr/share/fonts/truetype/freefont/FreeSans.ttf";
+	std::string italic_font_path = "/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf";
 
     ENFORCE(graphics_get_display_size(display, &screen_width_, &screen_height_) >= 0);
     initialize_fonts(font_path, italic_font_path);
@@ -581,41 +581,4 @@ void SubtitleRenderer::draw() BOOST_NOEXCEPT {
 void SubtitleRenderer::swap_buffers() BOOST_NOEXCEPT {
   EGLBoolean result = eglSwapBuffers(display_, surface_);
   assert(result);
-}
-
-void SubtitleRenderer::set_rect(int x1, int y1, int x2, int y2) BOOST_NOEXCEPT
-{
-    uint32_t width = x2-x1;
-    uint32_t height = y2-y1;
-    float height_mod = (float) height / screen_height_;
-    float width_mod = (float) width / screen_width_;
-    config_.buffer_x = x1;
-    config_.buffer_y = y2 - (screen_height_ - config_fullscreen_.buffer_y) * height_mod + 0.5f;
-    config_.buffer_width = width;
-    config_.buffer_height = config_fullscreen_.buffer_height * height_mod + 0.5f;
-    config_.line_height = config_fullscreen_.line_height * height_mod + 0.5f;
-    config_.box_offset = config_fullscreen_.box_offset * height_mod + 0.5f;
-    config_.box_h_padding = config_fullscreen_.box_h_padding * height_mod + 0.5f;
-    config_.margin_left = config_fullscreen_.margin_left * width_mod + 0.5f;
-    config_.margin_bottom = config_fullscreen_.margin_bottom * height_mod + 0.5f;
-
-    // resize dispmanx element
-    ENFORCE(dispman_element_);
-    VC_RECT_T dst_rect;
-    vc_dispmanx_rect_set(&dst_rect, config_.buffer_x, config_.buffer_y, config_.buffer_width, config_.buffer_height);
-    VC_RECT_T src_rect;
-    vc_dispmanx_rect_set(&src_rect, x1, y1, config_.buffer_width<<16, config_.buffer_height<<16);
-    DISPMANX_UPDATE_HANDLE_T dispman_update;
-    dispman_update = vc_dispmanx_update_start(0);
-    ENFORCE(dispman_update);
-    uint32_t change_flag = 1<<2 | 1<<3; // change only dst_rect and src_rect
-    ENFORCE(!vc_dispmanx_element_change_attributes(dispman_update, dispman_element_, change_flag, 0, 0,
-                                                   &dst_rect, &src_rect, 0, (DISPMANX_TRANSFORM_T) 0));
-    ENFORCE(!vc_dispmanx_update_submit_sync(dispman_update));
-
-    // resize font
-    glyphs_.clear(); // clear cached glyphs
-    float font_size = height*font_size_;
-    ENFORCE(!FT_Set_Pixel_Sizes(ft_face_, 0, font_size));
-    ENFORCE(!FT_Set_Pixel_Sizes(ft_face_italic_, 0, font_size));
 }

@@ -56,8 +56,6 @@ OMXPlayerSubtitles::~OMXPlayerSubtitles() BOOST_NOEXCEPT
 
 bool OMXPlayerSubtitles::Open(size_t stream_count,
                               vector<Subtitle>&& external_subtitles,
-                              const string& font_path,
-                              const string& italic_font_path,
                               float font_size,
                               bool centered,
                               bool ghost_box,
@@ -76,8 +74,6 @@ bool OMXPlayerSubtitles::Open(size_t stream_count,
   m_delay = 0;
   m_thread_stopped.store(false, memory_order_relaxed);
 
-  m_font_path = font_path;
-  m_italic_font_path = italic_font_path;
   m_font_size = font_size;
   m_centered = centered;
   m_ghost_box = ghost_box;
@@ -118,7 +114,7 @@ void OMXPlayerSubtitles::Process()
 {
   try
   {
-    RenderLoop(m_font_path, m_italic_font_path, m_font_size, m_centered,
+    RenderLoop(m_font_size, m_centered,
                m_ghost_box, m_lines, m_av_clock);
   }
   catch(Enforce_error& e)
@@ -144,22 +140,16 @@ Iterator FindSubtitle(Iterator begin, Iterator end, int time)
 }
 
 void OMXPlayerSubtitles::
-RenderLoop(const string& font_path,
-           const string& italic_font_path,
-           float font_size,
+RenderLoop(float font_size,
            bool centered,
            bool ghost_box,
            unsigned int lines,
            OMXClock* clock)
 {
   SubtitleRenderer renderer(m_display, m_layer,
-                            font_path,
-                            italic_font_path,
                             font_size,
-                            0.01f, 0.06f,
                             centered,
-                            0xDD,
-                            ghost_box ? 0x80 : 0,
+                            ghost_box,
                             lines);
 
   vector<Subtitle> subtitles;
@@ -275,10 +265,6 @@ RenderLoop(const string& font_path,
         osd_stop = chrono::steady_clock::now() +
                    chrono::milliseconds(args.duration);
         prev_now = INT_MAX;
-      },
-      [&](Message::SetRect&& args)
-      {
-        renderer.set_rect(args.x1, args.y1, args.x2, args.y2);
       });
 
     if(exit) break;
@@ -493,9 +479,4 @@ void OMXPlayerSubtitles::DisplayText(const std::string& text, int duration) BOOS
   vector<string> text_lines;
   split(text_lines, text, is_any_of("\n"));
   SendToRenderer(Message::DisplayText{std::move(text_lines), duration});
-}
-
-void OMXPlayerSubtitles::SetSubtitleRect(int x1, int y1, int x2, int y2) BOOST_NOEXCEPT
-{
-  SendToRenderer(Message::SetRect{x1, y1, x2, y2});
 }

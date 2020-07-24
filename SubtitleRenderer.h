@@ -98,14 +98,9 @@ public:
   SubtitleRenderer(const SubtitleRenderer&) = delete;
   SubtitleRenderer& operator=(const SubtitleRenderer&) = delete;
   SubtitleRenderer(int display, int layer,
-                   const std::string& font_path,
-                   const std::string& italic_font_path,
                    float font_size,
-                   float margin_left,
-                   float margin_bottom,
                    bool centered,
-                   unsigned int white_level,
-                   unsigned int box_opacity,
+                   bool box_opacity,
                    unsigned int lines);
   ~SubtitleRenderer() BOOST_NOEXCEPT;
 
@@ -129,8 +124,6 @@ public:
     if (prepared_)
       draw();
   }
-
-  void set_rect(int width, int height, int x, int y) BOOST_NOEXCEPT;
 
 private:
   struct InternalChar {
@@ -198,8 +191,8 @@ private:
   std::vector<std::pair<int,int>> line_positions_;
   std::vector<int> line_widths_;
   bool centered_;
-  unsigned int white_level_;
-  unsigned int box_opacity_;
+  unsigned int white_level_ = 0xDD;
+  bool box_opacity_;
   uint32_t screen_width_;
   uint32_t screen_height_;
   float font_size_;
