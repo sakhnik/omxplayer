@@ -1,7 +1,11 @@
-//-------------------------------------------------------------------------
+#pragma once
 //
 // The MIT License (MIT)
 //
+// Copyright (c) 2020 Michael Walsh
+//
+// Based on pngview by Andrew Duncan
+// https://github.com/AndrewFromMelbourne/raspidmx/tree/master/pngview
 // Copyright (c) 2013 Andrew Duncan
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -23,18 +27,14 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
-//-------------------------------------------------------------------------
-
-#ifndef IMAGE_LAYER_H
-#define IMAGE_LAYER_H
 
 void openDisplay(int display_num, int &screen_width, int &screen_height);
 
 void createImageLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int32_t width,
-	int32_t height, int &image_size);
+	int32_t height);
 
-void changeImageData(void *image_data);
+void setImageData(void *image_data);
+
+void hideElement();
 
 void removeImageLayer();
-
-#endif
