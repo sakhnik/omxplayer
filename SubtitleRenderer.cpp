@@ -46,13 +46,19 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	// And line_height combines the two
 	int line_height = m_font_size + m_padding;
 
-	// Alignment
+	// Alignment: a fairly unscientific survey showed that with a font size of 59px
+	// subtitles lines were rarely longer than 1300px.
 	int margin_left;
+	int assumed_longest_subtitle_line_in_pixels = m_font_size * 22.5;
 	m_screen_center = screen_width / 2;
 	if(m_centered)
 		margin_left = 0;
-	else
+	else if(screen_width > assumed_longest_subtitle_line_in_pixels)
+		margin_left = (int)(screen_width - assumed_longest_subtitle_line_in_pixels) / 2;
+	else if(screen_width > screen_height)
 		margin_left = (int)(screen_width - screen_height) / 2;
+	else
+		margin_left = 0;
 
 	// Calculate image height - must be evenly divisible by 16
 	m_image_height = (m_max_lines * line_height) + 5;
@@ -92,7 +98,7 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 	for(int i = no_of_lines - 1; i > -1; i--) {
 		cairo_text_extents_t extents;
 		cairo_text_extents(m_cr, lines[i].c_str(), &extents);
-		int box_width = extents.width + (m_padding * 2);
+		int box_width = extents.x_advance + (m_padding * 2);
 
 		// centered text
 		if(m_centered)
