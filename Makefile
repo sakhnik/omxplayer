@@ -15,8 +15,6 @@ SRC=		linux/XMemUtils.cpp \
 		DynamicDll.cpp \
 		utils/PCMRemap.cpp \
 		utils/RegExp.cpp \
-		OMXSubtitleTagSami.cpp \
-		OMXOverlayCodecText.cpp \
 		BitstreamConverter.cpp \
 		linux/RBP.cpp \
 		OMXThread.cpp \

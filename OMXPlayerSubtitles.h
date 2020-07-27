@@ -21,7 +21,6 @@
 #include "OMXThread.h"
 #include "OMXReader.h"
 #include "OMXClock.h"
-#include "OMXOverlayCodecText.h"
 #include "Subtitle.h"
 #include "utils/Mailbox.h"
 
@@ -143,7 +142,6 @@ private:
   std::vector<std::string> GetTextLines(OMXPacket *pkt);
   void FlushRenderer();
 
-  COMXOverlayCodecText                          m_subtitle_codec;
   std::vector<Subtitle>                         m_external_subtitles;
   std::vector<boost::circular_buffer<Subtitle>> m_subtitle_buffers;
   Mailbox<Message::Stop,

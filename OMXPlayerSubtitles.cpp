@@ -17,7 +17,6 @@
  */
 
 #include "OMXPlayerSubtitles.h"
-#include "OMXOverlayText.h"
 #include "SubtitleRenderer.h"
 #include "utils/Enforce.h"
 #include "utils/ScopeExit.h"
@@ -408,24 +407,49 @@ vector<string> OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt)
 {
   assert(pkt);
 
-  m_subtitle_codec.Open(pkt->hints);
-
-  auto result = m_subtitle_codec.Decode(pkt->data, pkt->size, 0, 0);
-  assert(result == OC_OVERLAY);
-
-  auto overlay = m_subtitle_codec.GetOverlay();
-  assert(overlay);
-
   vector<string> text_lines;
 
-  auto e = ((COMXOverlayText*) overlay)->m_pHead;
-  if(e && e->IsElementType(COMXOverlayText::ELEMENT_TYPE_TEXT))
+  if(pkt->hints.codec != AV_CODEC_ID_SUBRIP &&
+     pkt->hints.codec != AV_CODEC_ID_SSA &&
+     pkt->hints.codec != AV_CODEC_ID_ASS)
+    return text_lines;
+
+  char *start, *end;
+  start = (char*)pkt->data;
+  end   = (char*)pkt->data + pkt->size;
+
+  // skip the prefixed ssa fields (8 fields)
+  if (pkt->hints.codec == AV_CODEC_ID_SSA || pkt->hints.codec == AV_CODEC_ID_ASS)
   {
-    split(text_lines,
-          ((COMXOverlayText::CElementText*) e)->m_text,
-          is_any_of("\r\n"),
-          token_compress_on);
+    int nFieldCount = 8;
+    while (nFieldCount > 0 && start < end)
+    {
+      if (*start == ',')
+        nFieldCount--;
+
+      start++;
+    }
   }
+
+  // split lines on '\N'
+  char *p, *current_line;
+  current_line = p = start;
+
+  while (p < end - 1)
+  {
+    if(*p == '\\' && *(p + 1) == 'N')
+    {
+      *p = '\0';
+
+      text_lines.push_back(current_line);
+
+      p += 2;
+      current_line = p;
+    } else {
+      p++;
+    }
+  }
+  text_lines.push_back(current_line);
 
   return text_lines;
 }
