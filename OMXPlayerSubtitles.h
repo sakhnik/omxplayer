@@ -113,13 +113,6 @@ private:
       std::vector<std::string> text_lines;
       int duration;
     };
-    struct SetRect
-    {
-        int x1;
-        int y1;
-        int x2;
-        int y2;
-    };
   };
 
   template <typename T>

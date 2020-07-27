@@ -69,8 +69,8 @@ void AutoPlaylist::readPlaylist(string &filename)
 
 	// In English and most other European langauges, this should sort by lower case without
 	// regard to diacritics
-	const locale z = locale("");
-	sort(playlist.begin(), playlist.end(), locale(""));
+	const locale loc = locale("");
+	sort(playlist.begin(), playlist.end(), loc);
 
 	// search for file we started with
 	for(uint i = 0; i < playlist.size(); i++) {

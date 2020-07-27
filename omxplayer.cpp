@@ -467,6 +467,12 @@ static int get_mem_gpu(void)
    return gpu_mem;
 }
 
+void user_message(std::string msg)
+{
+	puts(msg.c_str());
+	DISPLAY_TEXT_SHORT(msg);
+}
+
 static void blank_background(uint32_t rgba)
 {
   // if alpha is fully transparent then background has no effect
@@ -1350,9 +1356,7 @@ int main(int argc, char *argv[])
           playspeed_current = playspeed_slow_max-1;
         playspeed_current = std::max(playspeed_current-1, playspeed_slow_min);
         SetSpeed(playspeeds[playspeed_current]);
-        DISPLAY_TEXT_SHORT(
-          strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
-        printf("Playspeed %.3f\n", playspeeds[playspeed_current]/1000.0f);
+        user_message(strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
         m_Pause = false;
         break;
       case KeyConfig::ACTION_INCREASE_SPEED:
@@ -1360,9 +1364,7 @@ int main(int argc, char *argv[])
           playspeed_current = playspeed_slow_max-1;
         playspeed_current = std::min(playspeed_current+1, playspeed_slow_max);
         SetSpeed(playspeeds[playspeed_current]);
-        DISPLAY_TEXT_SHORT(
-          strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
-        printf("Playspeed %.3f\n", playspeeds[playspeed_current]/1000.0f);
+        user_message(strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
         m_Pause = false;
         break;
       case KeyConfig::ACTION_REWIND:
@@ -1376,9 +1378,7 @@ int main(int argc, char *argv[])
         else
           playspeed_current = std::max(playspeed_current-1, playspeed_rew_max);
         SetSpeed(playspeeds[playspeed_current]);
-        DISPLAY_TEXT_SHORT(
-          strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
-        printf("Playspeed %.3f\n", playspeeds[playspeed_current]/1000.0f);
+        user_message(strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
         m_Pause = false;
         break;
       case KeyConfig::ACTION_FAST_FORWARD:
@@ -1392,14 +1392,12 @@ int main(int argc, char *argv[])
         else
           playspeed_current = std::min(playspeed_current+1, playspeed_ff_max);
         SetSpeed(playspeeds[playspeed_current]);
-        DISPLAY_TEXT_SHORT(
-          strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
-        printf("Playspeed %.3f\n", playspeeds[playspeed_current]/1000.0f);
+        user_message(strprintf("Playspeed: %.3f", playspeeds[playspeed_current]/1000.0f));
         m_Pause = false;
         break;
       case KeyConfig::ACTION_STEP:
         m_av_clock->OMXStep();
-        printf("Step\n");
+        puts("Step");
         {
           auto t = (unsigned) (m_av_clock->OMXMediaTime()*1e-3);
           auto dur = m_omx_reader.GetStreamLength() / 1000;
@@ -1599,7 +1597,7 @@ int main(int argc, char *argv[])
         play_pause:
         if (m_av_clock->OMXPlaySpeed() != DVD_PLAYSPEED_NORMAL && m_av_clock->OMXPlaySpeed() != DVD_PLAYSPEED_PAUSE)
         {
-          printf("resume\n");
+          puts("resume");
           playspeed_current = playspeed_normal;
           SetSpeed(playspeeds[playspeed_current]);
           m_seek_flush = true;
@@ -1692,10 +1690,11 @@ int main(int argc, char *argv[])
         {
           unsigned t = (unsigned)(startpts*1e-6);
           auto dur = m_omx_reader.GetStreamLength() / 1000;
-          DISPLAY_TEXT_LONG(strprintf("Seek\n%02d:%02d:%02d / %02d:%02d:%02d",
-              (t/3600), (t/60)%60, t%60, (dur/3600), (dur/60)%60, dur%60));
-          printf("Seek to: %02d:%02d:%02d / %02d:%02d:%02d\n",
+          string m = strprintf("%02d:%02d:%02d / %02d:%02d:%02d",
               (t/3600), (t/60)%60, t%60, (dur/3600), (dur/60)%60, dur%60);
+
+          DISPLAY_TEXT_LONG("Seek\n" + m);
+          printf("Seek to: %s\n", m.c_str());
           FlushStreams(startpts);
         }
       }
@@ -1952,7 +1951,7 @@ int main(int argc, char *argv[])
 
 do_exit:
   if (m_stats)
-    printf("\n");
+    puts("");
 
   unsigned t = (unsigned)(m_av_clock->OMXMediaTime()*1e-6);
   auto dur = m_omx_reader.GetStreamLength() / 1000;
@@ -2039,7 +2038,7 @@ do_exit:
   if(m_is_dvd_device) m_dvd_store.saveStore();
   else m_file_store.saveStore();
 
-  printf("have a nice day ;)\n");
+  puts("have a nice day ;)");
 
   // Exit on failure
   if(m_exit_with_error)
