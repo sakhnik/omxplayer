@@ -121,7 +121,7 @@ static int dvdread_file_read(void *h, uint8_t* buf, int size)
   int ret = reader->Read(buf, size);
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(58,12,100)
-  if (ret == 0 && pFile->IsEOF())
+  if (ret == 0 && reader->IsEOF())
     ret = AVERROR_EOF;
 #endif
 

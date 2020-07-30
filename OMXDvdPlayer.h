@@ -18,6 +18,7 @@ class OMXDvdPlayer
 
 	int Read(unsigned char *lpBuf, int64_t uiBufSize);
 	int64_t Seek(int64_t iFilePosition, int iWhence);
+	bool IsEOF();
 	int64_t GetLength();
 	int64_t getCurrentTrackLength();
 	int TotalChapters();

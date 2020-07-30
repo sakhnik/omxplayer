@@ -276,6 +276,14 @@ int64_t OMXDvdPlayer::GetLength()
 	return (int64_t)total_blocks * 2048;
 }
 
+bool OMXDvdPlayer::IsEOF()
+{
+	if(!m_open)
+		return false;
+
+	return pos >= total_blocks;
+}
+
 int OMXDvdPlayer::TotalChapters()
 {
 	return titles[current_track].chapter_count;
