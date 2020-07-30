@@ -30,6 +30,7 @@ SRC=		linux/XMemUtils.cpp \
 		OMXPlayerAudio.cpp \
 		OMXPlayerSubtitles.cpp \
 		SubtitleRenderer.cpp \
+		SubtitleTagParser.cpp \
 		DispmanxLayer.cpp \
 		Srt.cpp \
 		KeyConfig.cpp \

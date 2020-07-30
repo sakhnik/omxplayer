@@ -25,6 +25,9 @@
 
 using namespace std;
 
+class SubtitleText;
+class SubtitleTagParser;
+
 class SubtitleRenderer {
 	public:
 		SubtitleRenderer(const SubtitleRenderer&) = delete;
@@ -43,6 +46,9 @@ class SubtitleRenderer {
 		void unprepare();
 
 	private:
+		void change_font_italic(SubtitleText &st, bool setAnyway = false);
+		void change_font_color(SubtitleText &st, bool setAnyway = false);
+
 		bool m_prepared = false;
 
 		// cairo stuff
@@ -58,4 +64,13 @@ class SubtitleRenderer {
 		int m_max_lines;
 		int m_image_width; // must be evenly divisible by 16
 		int m_image_height;  // must be evenly divisible by 16
+
+		// tag parser
+		SubtitleTagParser *m_tag_parser;
+
+		// font properties
+		bool m_italic = false;
+		//bool m_bold = false;
+		bool m_font_color = false;
+		char m_font_color_code[4] = "\0\0\0";
 };
