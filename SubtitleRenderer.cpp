@@ -89,22 +89,27 @@ void SubtitleRenderer::change_font_italic(SubtitleText &st, bool setAnyway)
 
 void SubtitleRenderer::change_font_color(SubtitleText &st, bool setAnyway)
 {
-	if(setAnyway || m_font_color != st.color || (m_font_color && st.color &&
-			(m_font_color_code[0] != st.color_code[0]
-			|| m_font_color_code[1] != st.color_code[1]
-			|| m_font_color_code[2] != st.color_code[2]))) {
+	if(setAnyway || m_font_color != st.color || (st.color && m_font_color_code != st.color_code)) {
 
 		float r, g, b;
 		if(st.color) {
-			r = (float)st.color_code[0] / 255;
-			g = (float)st.color_code[1] / 255;
-			b = (float)st.color_code[2] / 255;
+			int x = st.color_code;
+
+			int red = x >> 16;
+			x -= (red << 16);
+
+			int green = x >> 8;
+			x -= (green << 8);
+
+			r = red / 255.0f;
+			g = green / 255.0f;
+			b = x / 255.0f;
 		} else {
 			r = g = b = 0.866667;
 		}
 
 		cairo_set_source_rgba(m_cr, r, g, b, 1);
-		memcpy(m_font_color_code, st.color_code, 3);
+		m_font_color_code = st.color_code;
 	}
 }
 
@@ -130,14 +135,15 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 	int no_of_lines = parsed_lines.size();
 	if(no_of_lines > m_max_lines) no_of_lines = m_max_lines;
 
-	bool firstBox = true;
+	// set font weight
+	change_font_italic(parsed_lines[no_of_lines - 1][0], true);
+
 	for(int i = no_of_lines - 1; i > -1; i--) {
 		vector<int> extent_widths(parsed_lines[i].size());
 		int box_width = (m_padding * 2);
 
 		for(uint h = 0; h < parsed_lines[i].size(); h++) {
-			change_font_italic(parsed_lines[i][h], firstBox);
-			firstBox = false;
+			change_font_italic(parsed_lines[i][h]);
 
 			cairo_text_extents_t extents;
 			cairo_text_extents(m_cr, parsed_lines[i][h].text.c_str(), &extents);

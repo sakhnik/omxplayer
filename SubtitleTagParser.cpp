@@ -37,7 +37,7 @@ SubtitleTagParser::SubtitleTagParser()
 	m_font_color_html->RegComp("color[ \\t]*=[ \\t\"']*#?([a-f0-9]{6})");
 
 	m_font_color_curly = new CRegExp(true);
-	m_font_color_curly->RegComp("^\\{\\\\c&h([a-f0-9]{6})&\\}$");
+	m_font_color_curly->RegComp("^\\{\\\\c&h([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})&\\}$");
 }
 
 
@@ -84,13 +84,15 @@ vector<vector<SubtitleText> > SubtitleTagParser::ParseLines(vector<string> &text
 			} else if (fullTag.substr(0,5) == "<font") {
 				if(m_font_color_html->RegFind(fullTag.c_str(), 5) >= 0) {
 					color = true;
-					process_color_code(m_font_color_html->GetMatch(1).c_str(), false);
+					m_color_code = hex2int(m_font_color_html->GetMatch(1).c_str());
 				} else {
 					printf("ERROR 1: no match for '%s'\n", fullTag.c_str());
 				}
 			} else if(m_font_color_curly->RegFind(fullTag.c_str(), 0) >= 0) {
 				color = true;
-				process_color_code(m_font_color_curly->GetMatch(1).c_str(), true);
+				string t = m_font_color_curly->GetMatch(3) + m_font_color_curly->GetMatch(2)
+					+ m_font_color_curly->GetMatch(1);
+				m_color_code = hex2int(t.c_str());
 			} else {
 				printf("ERROR 2: no match for '%s'\n", fullTag.c_str());
 			}
@@ -101,33 +103,17 @@ vector<vector<SubtitleText> > SubtitleTagParser::ParseLines(vector<string> &text
 }
 
 // expects 6 lowercase, digit hex string
-void SubtitleTagParser::process_color_code(const char *hex, bool inverted)
+int SubtitleTagParser::hex2int(const char *hex)
 {
-	unsigned char tmp[6];
-
-	for(int i = 0; i < 6; i++) {
-		if(hex[i] > 96)
-			tmp[i] = hex[i] - 87;
+	int r = 0;
+	for(int i = 0, f = 20; i < 6; i++, f -= 4)
+		if(hex[i] >= 'a')
+			r += (hex[i] - 87) << f;
 		else
-			tmp[i] = hex[i] - 48;
-	}
+			r += (hex[i] - 48) << f;
 
-	for(int i = 0; i < 6; i += 2) {
-		tmp[i] *= 16;
-	}
-
-	for(int i = 0; i < 3; i++) {
-		m_color_code[i] = tmp[i*2] + tmp[i*2+1];
-	}
-
-	if(inverted) {
-		//bgr -> rgb
-		char t = m_color_code[0];
-		m_color_code[0] = m_color_code[2];
-		m_color_code[2] = t;
-	}
+	return r;
 }
-
 
 SubtitleTagParser::~SubtitleTagParser()
 {

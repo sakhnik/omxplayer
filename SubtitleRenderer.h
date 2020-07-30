@@ -72,5 +72,5 @@ class SubtitleRenderer {
 		bool m_italic = false;
 		//bool m_bold = false;
 		bool m_font_color = false;
-		char m_font_color_code[4] = "\0\0\0";
+		int m_font_color_code = 0;
 };

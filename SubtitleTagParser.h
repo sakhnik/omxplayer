@@ -26,8 +26,6 @@
 #include <vector>
 #include <cstdio>
 
-#include <string.h>
-
 #include "utils/RegExp.h"
 
 using namespace std;
@@ -39,13 +37,11 @@ class SubtitleText
 		bool bold = false;
 		bool italic = false;
 		bool color = false;
-		char color_code[4];
+		int color_code = 0;
 
-		SubtitleText(string t, bool b, bool i, bool c, const char *cc)
-		: text(t), bold(b), italic(i), color(c)
+		SubtitleText(string t, bool b, bool i, bool c, int cc)
+		: text(t), bold(b), italic(i), color(c), color_code(cc)
 		{
-			if(color) strcpy(color_code, cc);
-			else memcpy(color_code, "\0\0\0\0", 4);
 		};
 };
 
@@ -61,10 +57,10 @@ class SubtitleTagParser
 		vector<vector<SubtitleText> > ParseLines(vector<string> &text_lines);
 
 	private:
-		void process_color_code(const char *hex, bool inverted);
+		int hex2int(const char *hex);
 
 		CRegExp *m_tags;
 		CRegExp *m_font_color_html;
 		CRegExp *m_font_color_curly;
-		char m_color_code[3];
+		int m_color_code = 0;
 };

@@ -89,7 +89,7 @@ void createImageLayer(int32_t layer, int32_t margin_left,
 	image_layer.image.size = image_layer.image.pitch * height;
 
 	image_layer.resource = vc_dispmanx_resource_create(
-		VC_IMAGE_RGBA32,
+		VC_IMAGE_ARGB8888,
 		width | (image_layer.image.pitch << 16),
 		height | (image_layer.image.height << 16),
 		&vc_image_ptr);
@@ -153,7 +153,7 @@ void showElement()
 void setImageData(void *image_data)
 {
 	int result = vc_dispmanx_resource_write_data(image_layer.resource,
-		VC_IMAGE_RGBA32, image_layer.image.pitch, image_data, &(image_layer.bmpRect));
+		VC_IMAGE_ARGB8888, image_layer.image.pitch, image_data, &(image_layer.bmpRect));
 
 	assert(result == 0);
 
