@@ -441,7 +441,7 @@ vector<string> OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt)
     {
       *p = '\0';
 
-      if(current_line != '\0') // ignore blank lines
+      if(*current_line != '\0') // ignore blank lines
         text_lines.push_back(current_line);
 
       p += 2;
@@ -453,7 +453,7 @@ vector<string> OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt)
 
 	  if(p > current_line && *(p - 1) == '\r') *(p - 1) = '\0';
 
-      if(current_line != '\0') // ignore blank lines
+      if(*current_line != '\0') // ignore blank lines
         text_lines.push_back(current_line);
 
       p++;
