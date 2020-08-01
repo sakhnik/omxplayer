@@ -272,8 +272,7 @@ bool OMXReader::Open(
       m_filename.substr(0,7) == "rtmp://" || m_filename.substr(0,6) == "udp://" ||
       m_filename.substr(0,7) == "rtsp://" || m_filename.substr(0,6) == "rtp://" ||
       m_filename.substr(0,6) == "ftp://" || m_filename.substr(0,7) == "sftp://" ||
-      m_filename.substr(0,6) == "tcp://" || m_filename.substr(0,7) == "unix://" ||
-      m_filename.substr(0,6) == "smb://")
+      m_filename.substr(0,6) == "tcp://" || m_filename.substr(0,7) == "unix://")
   {
     // ffmpeg dislikes the useragent from AirPlay urls
     //int idx = m_filename.Find("|User-Agent=AppleCoreMedia");
@@ -283,7 +282,7 @@ bool OMXReader::Open(
 
     // Enable seeking if http, ftp
     if(m_filename.substr(0,7) == "http://" || m_filename.substr(0,6) == "ftp://" ||
-       m_filename.substr(0,7) == "sftp://" || m_filename.substr(0,6) == "smb://")
+       m_filename.substr(0,7) == "sftp://")
     {
        if(!live)
        {
