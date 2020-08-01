@@ -13,10 +13,24 @@ echo "Modifying for native build on Debian"
 if [ -z `which sudo` ] ; then
     apt-get install -y sudo
 fi
-    
-echo "Checking dpkg database for missing packages"
-REQUIRED_PKGS="ca-certificates git-core binutils libasound2-dev libva1 libpcre3-dev libidn11-dev libboost-dev libcairo2-dev libdvdread-dev libdbus-1-dev libssl1.0-dev libssh-dev gcc g++ sed pkg-config"
+
+REQUIRED_PKGS_STRETCH="libva1 libssl1.0-dev"
+REQUIRED_PKGS_BUSTER="libva2 libssl-dev"
+REQUIRED_PKGS="ca-certificates git binutils libasound2-dev libpcre3-dev libidn11-dev libboost-dev libcairo2-dev libdvdread-dev libdbus-1-dev libssh-dev gcc g++ sed pkg-config"
 MISSING_PKGS=""
+
+MAJOR_VERSION=`lsb_release -c | sed 's/Codename:[ \t]//'`
+if [ "$MAJOR_VERSION" = "buster" ]; then
+	REQUIRED_PKGS="$REQUIRED_PKGS_BUSTER $REQUIRED_PKGS"
+elif [ "$MAJOR_VERSION" = "stretch" ]; then
+	REQUIRED_PKGS="$REQUIRED_PKGS_STRETCH $REQUIRED_PKGS"
+else
+	echo "This script does not support $major_version"
+	exit 1
+fi
+
+echo "Checking dpkg database for missing packages"
+
 for pkg in $REQUIRED_PKGS
 do
 	check_dpkg_installed $pkg
