@@ -151,9 +151,13 @@ void print_version()
 
 // Exit macros for main function
 #define ExitGently() { g_abort = true; goto do_exit; }
-#define ExitGentlyOnError() ExitGentlyOnErrorWithMessage("Exiting on error")
-#define ExitGentlyOnErrorWithMessage(msg) { \
-	puts(msg ": omxplayer.cpp line: __LINE__"); \
+#define ExitGentlyOnError() { \
+	printf("Exiting on error: omxplayer.cpp line: %d\n", __LINE__); \
+	m_exit_with_error = true; \
+	ExitGently(); \
+}
+#define ExitGentlyWithMessage(msg) { \
+	puts(msg); \
 	m_exit_with_error = true; \
 	ExitGently(); \
 }
@@ -1243,7 +1247,7 @@ int main(int argc, char *argv[])
   {
     std::vector<Subtitle> external_subtitles;
     if(m_has_external_subtitles && !ReadSrt(m_external_subtitles_path, external_subtitles))
-       ExitGentlyOnErrorWithMessage("Unable to read the subtitle file");
+       ExitGentlyWithMessage("Unable to read the subtitle file");
 
     if(!m_player_subtitles.Open(m_omx_reader.SubtitleStreamCount(),
                                 std::move(external_subtitles),
@@ -1739,7 +1743,7 @@ int main(int argc, char *argv[])
 
     /* player got in an error state */
     if(m_player_audio.Error())
-      ExitGentlyOnErrorWithMessage("Audio player error");
+      ExitGentlyWithMessage("Audio player error");
 
     if (update)
     {
