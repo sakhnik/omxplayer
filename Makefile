@@ -80,10 +80,9 @@ clean:
 	rm -f omxplayer-dist.tgz
 	rm -f version.h MAN omxplayer.1
 
+.PHONY: ffmpeg
 ffmpeg:
-	@rm -rf ffmpeg
-	make -f Makefile.ffmpeg
-	make -f Makefile.ffmpeg install
+	@ INCLUDES='$(INCLUDES)' ./ffmpeg_helper.sh all
 
 dist:
 	tar -cPf $(DIST).tgz \
