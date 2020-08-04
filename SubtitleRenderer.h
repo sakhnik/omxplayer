@@ -46,8 +46,20 @@ class SubtitleRenderer {
 		void unprepare();
 
 	private:
-		void change_font_italic(SubtitleText &st, bool setAnyway = false);
-		void change_font_color(SubtitleText &st, bool setAnyway = false);
+		void set_font(int new_font_type);
+		void set_color(int new_color);
+
+		enum {
+			NORMAL_FONT,
+			ITALIC_FONT,
+			BOLD_FONT,
+		};
+
+		enum {
+			LEFT_ALIGN,
+			CENTER_ALIGN,
+			RIGHT_ALIGN,
+		};
 
 		bool m_prepared = false;
 
@@ -55,10 +67,17 @@ class SubtitleRenderer {
 		cairo_surface_t *m_surface;
 		cairo_t *m_cr;
 
+		cairo_font_face_t *m_italic_font;
+		cairo_font_face_t *m_normal_font;
+		cairo_scaled_font_t *m_normal_font_scaled;
+		cairo_scaled_font_t *m_italic_font_scaled;
+
+		cairo_pattern_t *m_ghost_box_transparency;
+		cairo_pattern_t *m_default_font_color;
+		cairo_pattern_t *m_black_font_outline;
+
 		// positional elements
-		int m_font_size;
-		int m_padding;
-		bool m_centered;
+		int m_alignment;
 		int m_screen_center;
 		bool m_ghost_box;
 		int m_max_lines;
@@ -69,8 +88,8 @@ class SubtitleRenderer {
 		SubtitleTagParser *m_tag_parser;
 
 		// font properties
-		bool m_italic = false;
-		//bool m_bold = false;
-		bool m_font_color = false;
-		int m_font_color_code = 0;
+		int m_padding;
+		int m_font_size;
+		int m_current_font;
+		int m_color;
 };

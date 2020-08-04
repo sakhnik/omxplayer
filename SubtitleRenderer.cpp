@@ -31,7 +31,7 @@ using namespace std;
 
 SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_size,
 	bool centered, bool box_opacity, unsigned int lines)
-: m_centered(centered),
+: m_alignment(centered ? CENTER_ALIGN : LEFT_ALIGN),
   m_ghost_box(box_opacity),
   m_max_lines(lines)
 {
@@ -54,7 +54,7 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	int margin_left;
 	int assumed_longest_subtitle_line_in_pixels = m_font_size * 22.5;
 	m_screen_center = screen_width / 2;
-	if(m_centered)
+	if(m_alignment == CENTER_ALIGN)
 		margin_left = 0;
 	else if(screen_width > assumed_longest_subtitle_line_in_pixels)
 		margin_left = (int)(screen_width - assumed_longest_subtitle_line_in_pixels) / 2;
@@ -75,42 +75,74 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 
 	// Create image layer
 	createImageLayer(layer_num, margin_left, top_margin, m_image_width, m_image_height);
+
+	// font faces
+	m_normal_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	m_italic_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_ITALIC, CAIRO_FONT_WEIGHT_NORMAL);
+
+	// prepare scaled fonts
+	cairo_font_options_t *options = cairo_font_options_create();
+    cairo_matrix_t sizeMatrix, ctm;
+    cairo_matrix_init_identity(&ctm);
+    cairo_matrix_init_scale(&sizeMatrix, m_font_size, m_font_size);
+
+	m_normal_font_scaled = cairo_scaled_font_create(m_normal_font, &sizeMatrix, &ctm, options);
+	m_italic_font_scaled = cairo_scaled_font_create(m_italic_font, &sizeMatrix, &ctm, options);
+
+	// font colours
+	m_ghost_box_transparency = cairo_pattern_create_rgba(0, 0, 0, 0.5f);
+	m_default_font_color = cairo_pattern_create_rgba(0.866667, 0.866667, 0.866667, 1);
+	m_black_font_outline = cairo_pattern_create_rgba(0, 0, 0, 1);
+
+	// cleanup
+	cairo_font_options_destroy(options);
 }
 
-
-void SubtitleRenderer::change_font_italic(SubtitleText &st, bool setAnyway)
+void SubtitleRenderer::set_font(int new_font_type)
 {
-	if(setAnyway || m_italic != st.italic) {
-		cairo_select_font_face(m_cr, st.italic ? "FreeSansOblique" : "FreeSans",
-			CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-		m_italic = st.italic;
+	if(new_font_type == m_current_font) return;
+
+	switch(new_font_type) {
+		case NORMAL_FONT:
+		case BOLD_FONT:
+			cairo_set_scaled_font(m_cr, m_normal_font_scaled);
+			break;
+		case ITALIC_FONT:
+			cairo_set_scaled_font(m_cr, m_italic_font_scaled);
+			break;
 	}
+
+	m_current_font = new_font_type;
 }
 
-void SubtitleRenderer::change_font_color(SubtitleText &st, bool setAnyway)
+void SubtitleRenderer::set_color(int new_color)
 {
-	if(setAnyway || m_font_color != st.color || (st.color && m_font_color_code != st.color_code)) {
+	if(new_color == m_color) return;
 
-		float r, g, b;
-		if(st.color) {
-			int x = st.color_code;
+	if(new_color == -1)
+		cairo_set_source(m_cr, m_default_font_color);
+	else if(new_color == -2)
+		cairo_set_source(m_cr, m_ghost_box_transparency);
+	else if(new_color == 0)
+		cairo_set_source(m_cr, m_black_font_outline);
+	else
+	{
+		int x = new_color;
 
-			int red = x >> 16;
-			x -= (red << 16);
+		int red = x >> 16;
+		x -= (red << 16);
 
-			int green = x >> 8;
-			x -= (green << 8);
+		int green = x >> 8;
+		x -= (green << 8);
 
-			r = red / 255.0f;
-			g = green / 255.0f;
-			b = x / 255.0f;
-		} else {
-			r = g = b = 0.866667;
-		}
+		float r = red / 255.0f;
+		float g = green / 255.0f;
+		float b = x / 255.0f;
 
 		cairo_set_source_rgba(m_cr, r, g, b, 1);
-		m_font_color_code = st.color_code;
 	}
+
+	m_color = new_color;
 }
 
 
@@ -120,69 +152,98 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 
 	vector<vector<SubtitleText> > parsed_lines = m_tag_parser->ParseLines(lines);
 
+	// create surface
 	m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, m_image_width, m_image_height);
 	m_cr = cairo_create(m_surface);
 
-	cairo_set_font_size(m_cr, m_font_size);
+	// Reset font control vars as no font or drawing dolour has been set
+	m_current_font = -500;
+	m_color = -500;
 
-	// cursor position
+	// cursor y position
 	int cursor_y_position = m_image_height - m_padding;
-
-	// Show ghost box?
-	float ghost_box_transparency = m_ghost_box ? 0.5f : 0.0f;
 
 	// Limit the number of line
 	int no_of_lines = parsed_lines.size();
 	if(no_of_lines > m_max_lines) no_of_lines = m_max_lines;
 
-	// set font weight
-	change_font_italic(parsed_lines[no_of_lines - 1][0], true);
-
 	for(int i = no_of_lines - 1; i > -1; i--) {
-		vector<int> extent_widths(parsed_lines[i].size());
 		int box_width = (m_padding * 2);
+		int text_parts = parsed_lines[i].size();
 
-		for(uint h = 0; h < parsed_lines[i].size(); h++) {
-			change_font_italic(parsed_lines[i][h]);
+		// cursor x position
+		int cursor_x_position = 0;
 
+		for(int j = 0; j < text_parts; j++) {
+			set_font(parsed_lines[i][j].italic ? ITALIC_FONT : NORMAL_FONT);
+
+			// prepare font glyphs
+			cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+					cairo_get_scaled_font(m_cr),
+					cursor_x_position + m_padding,
+					cursor_y_position - (m_padding / 2),
+					parsed_lines[i][j].text.c_str(), -1,
+					&parsed_lines[i][j].glyphs,
+					&parsed_lines[i][j].num_glyphs,
+					NULL, NULL, NULL);
+
+			if (status != CAIRO_STATUS_SUCCESS) {
+				puts("cairo_scaled_font_text_to_glyphs: failed");
+				return;
+			}
+
+			// calculate font extents
 			cairo_text_extents_t extents;
-			cairo_text_extents(m_cr, parsed_lines[i][h].text.c_str(), &extents);
+			cairo_glyph_extents (m_cr,
+				parsed_lines[i][j].glyphs,
+				parsed_lines[i][j].num_glyphs,
+				&extents);
 
-			extent_widths[h] = extents.x_advance;
-			box_width += extents.x_advance;
+			cursor_x_position += extents.x_advance;
 		}
+		box_width += cursor_x_position;
 
-		// centered text
-		int cursor_x_position;
-		if(m_centered)
-			cursor_x_position = m_screen_center - (box_width / 2);
-		else
+		// aligned text
+		if(m_alignment == CENTER_ALIGN || m_alignment == RIGHT_ALIGN) {
+			if(m_alignment == RIGHT_ALIGN)
+				cursor_x_position = m_image_width - box_width;
+			else
+				cursor_x_position = m_screen_center - (box_width / 2);
+
+			for(int j = 0; j < text_parts; j++) {
+				cairo_glyph_t *p = parsed_lines[i][j].glyphs;
+				for(int h = 0; h < parsed_lines[i][j].num_glyphs; h++, p++) {
+					p->x +=cursor_x_position;
+				}
+			}
+		} else {
 			cursor_x_position = 0;
+		}
 
 		// draw ghost box
-		cairo_set_source_rgba(m_cr, 0, 0, 0, ghost_box_transparency);
-		cairo_rectangle(m_cr, cursor_x_position, cursor_y_position - m_font_size, box_width, 
-			m_font_size + m_padding);
-		cairo_fill(m_cr);
-
-		bool firstBox = true;
-		for(uint h = 0; h < parsed_lines[i].size(); h++) {
-			change_font_italic(parsed_lines[i][h]);
-			change_font_color(parsed_lines[i][h], firstBox);
-			firstBox = false;
-
-			cairo_move_to(m_cr, cursor_x_position + m_padding, cursor_y_position - (m_padding / 2));
-			cairo_text_path(m_cr, parsed_lines[i][h].text.c_str());
-			cairo_fill_preserve(m_cr);
-
-			// draw black text outline
-			cairo_set_source_rgba(m_cr, 0, 0, 0, 1);
-			cairo_set_line_width(m_cr, 2);
-			cairo_stroke(m_cr);
-
-			// move cursor across
-			cursor_x_position += extent_widths[h];
+		if(m_ghost_box) {
+			set_color(-2);
+			cairo_rectangle(m_cr, cursor_x_position, cursor_y_position - m_font_size, box_width,
+				m_font_size + m_padding);
+			cairo_fill(m_cr);
 		}
+
+		for(int j = 0; j < text_parts; j++) {
+			set_font(parsed_lines[i][j].italic ? ITALIC_FONT : NORMAL_FONT);
+			set_color(parsed_lines[i][j].color);
+
+			// draw text
+			cairo_glyph_path(m_cr, parsed_lines[i][j].glyphs, parsed_lines[i][j].num_glyphs);
+
+			// free glyph array
+			cairo_glyph_free(parsed_lines[i][j].glyphs);
+		}
+
+		// draw black text outline
+		cairo_fill_preserve(m_cr);
+		set_color(0);
+		cairo_set_line_width(m_cr, 2);
+		cairo_stroke(m_cr);
 
 		// next line
 		cursor_y_position -= m_font_size + m_padding;
@@ -218,5 +279,12 @@ SubtitleRenderer::~SubtitleRenderer()
 {
 	unprepare();
 	removeImageLayer();
+
+	cairo_scaled_font_destroy(m_normal_font_scaled);
+	cairo_scaled_font_destroy(m_italic_font_scaled);
+
+	cairo_font_face_destroy(m_normal_font);
+	cairo_font_face_destroy(m_italic_font);
+
 	delete m_tag_parser;
 }

@@ -26,7 +26,9 @@
 #include <vector>
 #include <cstdio>
 
-#include "utils/RegExp.h"
+#include <cairo.h>
+
+class CRegExp;
 
 using namespace std;
 
@@ -34,13 +36,15 @@ class SubtitleText
 {
 	public:
 		string text;
-		bool bold = false;
-		bool italic = false;
-		bool color = false;
-		int color_code = 0;
+		bool bold;
+		bool italic;
+		int color;
 
-		SubtitleText(string t, bool b, bool i, bool c, int cc)
-		: text(t), bold(b), italic(i), color(c), color_code(cc)
+		cairo_glyph_t *glyphs = NULL;
+		int num_glyphs = 0;
+
+		SubtitleText(string t, bool b, bool i, int c)
+		: text(t), bold(b), italic(i), color(c)
 		{
 		};
 };
@@ -62,5 +66,4 @@ class SubtitleTagParser
 		CRegExp *m_tags;
 		CRegExp *m_font_color_html;
 		CRegExp *m_font_color_curly;
-		int m_color_code = 0;
 };

@@ -45,7 +45,8 @@ vector<vector<SubtitleText> > SubtitleTagParser::ParseLines(vector<string> &text
 {
 	vector<vector<SubtitleText> > formatted_lines(text_lines.size());
 
-	bool bold = false, italic = false, color = false;
+	bool bold = false, italic = false;
+	int color = -1;
 
 	for(uint i=0; i < text_lines.size(); i++) {
 		boost::algorithm::trim(text_lines[i]);
@@ -59,7 +60,7 @@ vector<vector<SubtitleText> > SubtitleTagParser::ParseLines(vector<string> &text
 			//parse text
 			if(pos != old_pos) {
 				string t = text_lines[i].substr(old_pos, pos - old_pos);
-				formatted_lines[i].emplace_back(move(t), bold, italic, color, m_color_code);
+				formatted_lines[i].emplace_back(move(t), bold, italic, color);
 			}
 
 			// No more tags found
@@ -79,20 +80,18 @@ vector<vector<SubtitleText> > SubtitleTagParser::ParseLines(vector<string> &text
 				italic = true;
 			} else if ((fullTag == "</i>" || fullTag == "{\\i0}") && italic) {
 				italic = false;
-			} else if ((fullTag == "</font>" || fullTag == "{\\c}") && color) {
-				color = false;
+			} else if ((fullTag == "</font>" || fullTag == "{\\c}") && color != -1) {
+				color = -1;
 			} else if (fullTag.substr(0,5) == "<font") {
 				if(m_font_color_html->RegFind(fullTag.c_str(), 5) >= 0) {
-					color = true;
-					m_color_code = hex2int(m_font_color_html->GetMatch(1).c_str());
+					color = hex2int(m_font_color_html->GetMatch(1).c_str());
 				} else {
 					printf("ERROR 1: no match for '%s'\n", fullTag.c_str());
 				}
 			} else if(m_font_color_curly->RegFind(fullTag.c_str(), 0) >= 0) {
-				color = true;
 				string t = m_font_color_curly->GetMatch(3) + m_font_color_curly->GetMatch(2)
 					+ m_font_color_curly->GetMatch(1);
-				m_color_code = hex2int(t.c_str());
+				color = hex2int(t.c_str());
 			} else {
 				printf("ERROR 2: no match for '%s'\n", fullTag.c_str());
 			}
