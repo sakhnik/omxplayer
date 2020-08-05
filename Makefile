@@ -84,6 +84,26 @@ clean:
 ffmpeg:
 	@ INCLUDES='$(INCLUDES)' ./ffmpeg_helper.sh all
 
+.PHONY: ffmpeg-download
+ffmpeg-download:
+	@ INCLUDES='$(INCLUDES)' ./ffmpeg_helper.sh download
+
+.PHONY: ffmpeg-configure
+ffmpeg-configure:
+	@ INCLUDES='$(INCLUDES)' ./ffmpeg_helper.sh configure
+
+.PHONY: ffmpeg-make
+ffmpeg-make:
+	@ INCLUDES='$(INCLUDES)' ./ffmpeg_helper.sh make
+
+.PHONY: ffmpeg-install
+ffmpeg-install:
+	@ INCLUDES='$(INCLUDES)' ./ffmpeg_helper.sh install
+
+.PHONY: ffmpeg-clean
+ffmpeg-clean:
+	@ ./ffmpeg_helper.sh clean
+
 dist:
 	tar -cPf $(DIST).tgz \
 	--transform 's,^omxplayer$$,/usr/bin/omxplayer,S' \

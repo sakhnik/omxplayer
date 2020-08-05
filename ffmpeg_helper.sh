@@ -16,18 +16,16 @@ print_and_run()
 usage()
 {
 	cat <<EOF
-usgae: $0 (download|configure|make|install|all|clean)
-
 This is a simple script to download and compile ffmpeg libraries.
-It should normally be run from the Makefile by running 'make ffmpeg'
-so that it inherits the correct environmental variables.
+It should not normally be run directly. Its functions can be accessed
+from the Makefile so it can inherit the correct environmental variables.
 
-download   Downloads a specific branch of ffmpeg from the git repository
-configure  Runs the configure script
-make       Make the static objects file
-install    Copies header and static onject file to ../ffmpeg_compiled
-all        All the above commands in order (default command)
-clean      Runs 'make clean'
+make ffmpeg-download   Download a specific branch of ffmpeg from the git repository
+make ffmpeg-configure  Run the configure script
+make ffmpeg-make       Make the static object files
+make ffmpeg-install    Copies header and static onject file to ../ffmpeg_compiled
+make ffmpeg            All the above commands in order
+make ffmpeg-clean      Runs 'make clean'
 EOF
 }
 
