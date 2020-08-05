@@ -67,20 +67,12 @@ configure_ffmpeg()
 		--disable-runtime-cpudetect \
 		--disable-debug \
 		--disable-crystalhd \
-		--disable-decoder=h264_vda \
 		--disable-decoder=h264_crystalhd \
-		--disable-decoder=h264_vdpau \
 		--disable-decoder=vc1_crystalhd \
 		--disable-decoder=wmv3_crystalhd \
-		--disable-decoder=wmv3_vdpau \
-		--disable-decoder=mpeg1_vdpau \
 		--disable-decoder=mpeg2_crystalhd \
 		--disable-decoder=mpeg4_crystalhd \
-		--disable-decoder=mpeg4_vdpau \
-		--disable-decoder=mpeg_vdpau \
-		--disable-decoder=mpeg_xvmc \
 		--disable-decoder=msmpeg4_crystalhd \
-		--disable-decoder=vc1_vdpau \
 		--enable-decoder=mpegvideo \
 		--enable-decoder=mpeg1video \
 		--enable-decoder=mpeg2video \
@@ -94,7 +86,7 @@ configure_ffmpeg()
 		--enable-decoder=mjpegb \
 		--disable-decoder=sp5x \
 		--disable-decoder=jpegls \
-		--enable-decoder=mpeg4 \
+		--disable-decoder=mpeg4 \
 		--disable-decoder=rawvideo \
 		--disable-decoder=msmpeg4v1 \
 		--disable-decoder=msmpeg4v2 \
@@ -111,7 +103,7 @@ configure_ffmpeg()
 		--enable-decoder=h264 \
 		--disable-decoder=indeo3 \
 		--disable-decoder=vp3 \
-		--enable-decoder=theora \
+		--disable-decoder=theora \
 		--disable-decoder=asv1 \
 		--disable-decoder=asv2 \
 		--disable-decoder=ffv1 \
@@ -147,8 +139,8 @@ configure_ffmpeg()
 		--disable-decoder=ffvhuff \
 		--disable-decoder=rv30 \
 		--disable-decoder=rv40 \
-		--enable-decoder=vc1 \
-		--enable-decoder=wmv3 \
+		--disable-decoder=vc1 \
+		--disable-decoder=wmv3 \
 		--disable-decoder=loco \
 		--disable-decoder=wnv1 \
 		--disable-decoder=aasc \
@@ -265,7 +257,7 @@ download_ffmpeg()
 		return 0
 	else
 		echo Downloading ffmpeg
-		print_and_run git clone git://source.ffmpeg.org/ffmpeg ffmpeg -b release/3.3 --depth=1
+		print_and_run git clone git://source.ffmpeg.org/ffmpeg ffmpeg -b release/4.3 --depth=1
 		return $?
 	fi
 }
