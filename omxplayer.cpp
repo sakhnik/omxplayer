@@ -563,7 +563,6 @@ int main(int argc, char *argv[])
   const int no_ghost_box_opt = 0x203;
   const int subtitles_opt   = 0x103;
   const int lines_opt       = 0x104;
-  const int pos_opt         = 0x105;
   const int vol_opt         = 0x106;
   const int audio_fifo_opt  = 0x107;
   const int video_fifo_opt  = 0x108;
@@ -591,7 +590,6 @@ int main(int argc, char *argv[])
   const int alpha_opt       = 0x210;
   const int advanced_opt    = 0x211;
   const int aspect_mode_opt = 0x212;
-  const int crop_opt        = 0x213;
   const int http_cookie_opt = 0x300;
   const int http_user_agent_opt = 0x301;
   const int lavfdopts_opt   = 0x400;
@@ -630,8 +628,6 @@ int main(int argc, char *argv[])
     { "no-ghost-box", no_argument,        NULL,          no_ghost_box_opt },
     { "subtitles",    required_argument,  NULL,          subtitles_opt },
     { "lines",        required_argument,  NULL,          lines_opt },
-    { "win",          required_argument,  NULL,          pos_opt },
-    { "crop",         required_argument,  NULL,          crop_opt },
     { "aspect-mode",  required_argument,  NULL,          aspect_mode_opt },
     { "audio_fifo",   required_argument,  NULL,          audio_fifo_opt },
     { "video_fifo",   required_argument,  NULL,          video_fifo_opt },

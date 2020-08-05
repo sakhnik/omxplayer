@@ -36,34 +36,29 @@ if you modify the structure of README.md!
 
 ## COMPILING
 
-Run this script which will install build dependency packages,
-including g++, and update firmware
+Run this script which run checks for system requirements, and required packages.
 
     ./prepare-native-raspbian.sh
 
-Build with
+There are two ways of building omxplayer:
 
-    make ffmpeg
-    make -j$(nproc)
+1. Using a specially compiled version of ffmpeg which can be built by running
 
-Install with
-    
-    sudo make install
+	make ffmpeg
 
-## CROSS COMPILING
+2. Or by using the same libraries as provided by apt-get. The prepare-native-raspbian.sh
+script lists these as optional packages. They are:
 
-You need the content of your sdcard somewhere mounted or copied. There might be
-development headers to install on the running Pi system for the crosscompiling.
+	libavutil-dev libswresample-dev libavcodec-dev libavformat-dev libswscale-dev
 
-Edit Makefile.include and change the settings according your locations.
+Once you have either compiled ffmpeg or installed the optional packages, compile
+omxplayer with
 
-    make ffmpeg
     make
-    make dist
 
-Installing OMXPlayer
+and install with
 
-Copy over `omxplayer-dist/*` to the Pi `/`.
+    sudo make install
 
 ## SYNOPSIS
 
@@ -105,10 +100,6 @@ Usage: omxplayer [OPTIONS] [FILE]
         --align left/center     Subtitle alignment (default: left)
         --no-ghost-box          No semitransparent boxes behind subtitles
         --lines n               Number of lines in the subtitle buffer (default: 3)
-        --win 'x1 y1 x2 y2'     Set position of video window
-        --win x1,y1,x2,y2       Set position of video window
-        --crop 'x1 y1 x2 y2'    Set crop area for input video
-        --crop x1,y1,x2,y2      Set crop area for input video
         --aspect-mode type      Letterbox, fill, stretch. Default: stretch if win is specified, letterbox otherwise
         --audio_fifo  n         Size of audio output fifo in seconds
         --video_fifo  n         Size of video output fifo in MB
