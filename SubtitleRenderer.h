@@ -67,10 +67,10 @@ class SubtitleRenderer {
 		cairo_surface_t *m_surface;
 		cairo_t *m_cr;
 
-		cairo_font_face_t *m_italic_font;
-		cairo_font_face_t *m_normal_font;
+		// fonts
 		cairo_scaled_font_t *m_normal_font_scaled;
 		cairo_scaled_font_t *m_italic_font_scaled;
+		cairo_scaled_font_t *m_bold_font_scaled;
 
 		cairo_pattern_t *m_ghost_box_transparency;
 		cairo_pattern_t *m_default_font_color;

@@ -77,17 +77,19 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	createImageLayer(layer_num, margin_left, top_margin, m_image_width, m_image_height);
 
 	// font faces
-	m_normal_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-	m_italic_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_ITALIC, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_font_face_t *m_normal_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_font_face_t *m_italic_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_ITALIC, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_font_face_t *m_bold_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
 
 	// prepare scaled fonts
-	cairo_font_options_t *options = cairo_font_options_create();
     cairo_matrix_t sizeMatrix, ctm;
     cairo_matrix_init_identity(&ctm);
     cairo_matrix_init_scale(&sizeMatrix, m_font_size, m_font_size);
+    cairo_font_options_t *options = cairo_font_options_create();
 
 	m_normal_font_scaled = cairo_scaled_font_create(m_normal_font, &sizeMatrix, &ctm, options);
 	m_italic_font_scaled = cairo_scaled_font_create(m_italic_font, &sizeMatrix, &ctm, options);
+	m_bold_font_scaled = cairo_scaled_font_create(m_bold_font, &sizeMatrix, &ctm, options);
 
 	// font colours
 	m_ghost_box_transparency = cairo_pattern_create_rgba(0, 0, 0, 0.5f);
@@ -96,6 +98,9 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 
 	// cleanup
 	cairo_font_options_destroy(options);
+	cairo_font_face_destroy(m_normal_font);
+	cairo_font_face_destroy(m_italic_font);
+	cairo_font_face_destroy(m_bold_font);
 }
 
 void SubtitleRenderer::set_font(int new_font_type)
@@ -104,8 +109,10 @@ void SubtitleRenderer::set_font(int new_font_type)
 
 	switch(new_font_type) {
 		case NORMAL_FONT:
-		case BOLD_FONT:
 			cairo_set_scaled_font(m_cr, m_normal_font_scaled);
+			break;
+		case BOLD_FONT:
+			cairo_set_scaled_font(m_cr, m_bold_font_scaled);
 			break;
 		case ITALIC_FONT:
 			cairo_set_scaled_font(m_cr, m_italic_font_scaled);
@@ -175,7 +182,7 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 		int cursor_x_position = 0;
 
 		for(int j = 0; j < text_parts; j++) {
-			set_font(parsed_lines[i][j].italic ? ITALIC_FONT : NORMAL_FONT);
+			set_font(parsed_lines[i][j].font);
 
 			// prepare font glyphs
 			cairo_status_t status = cairo_scaled_font_text_to_glyphs(
@@ -229,7 +236,7 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 		}
 
 		for(int j = 0; j < text_parts; j++) {
-			set_font(parsed_lines[i][j].italic ? ITALIC_FONT : NORMAL_FONT);
+			set_font(parsed_lines[i][j].font);
 			set_color(parsed_lines[i][j].color);
 
 			// draw text
@@ -282,9 +289,7 @@ SubtitleRenderer::~SubtitleRenderer()
 
 	cairo_scaled_font_destroy(m_normal_font_scaled);
 	cairo_scaled_font_destroy(m_italic_font_scaled);
-
-	cairo_font_face_destroy(m_normal_font);
-	cairo_font_face_destroy(m_italic_font);
+	cairo_scaled_font_destroy(m_bold_font_scaled);
 
 	delete m_tag_parser;
 }

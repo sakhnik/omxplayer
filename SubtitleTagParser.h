@@ -36,15 +36,14 @@ class SubtitleText
 {
 	public:
 		string text;
-		bool bold;
-		bool italic;
+		int font;
 		int color;
 
 		cairo_glyph_t *glyphs = NULL;
 		int num_glyphs = 0;
 
-		SubtitleText(string t, bool b, bool i, int c)
-		: text(t), bold(b), italic(i), color(c)
+		SubtitleText(string t, int f, int c)
+		: text(t), font(f), color(c)
 		{
 		};
 };
@@ -62,6 +61,12 @@ class SubtitleTagParser
 
 	private:
 		int hex2int(const char *hex);
+
+		enum {
+			NORMAL_FONT,
+			ITALIC_FONT,
+			BOLD_FONT,
+		};
 
 		CRegExp *m_tags;
 		CRegExp *m_font_color_html;

@@ -60,7 +60,8 @@ vector<vector<SubtitleText> > SubtitleTagParser::ParseLines(vector<string> &text
 			//parse text
 			if(pos != old_pos) {
 				string t = text_lines[i].substr(old_pos, pos - old_pos);
-				formatted_lines[i].emplace_back(move(t), bold, italic, color);
+				int font = italic ? ITALIC_FONT : (bold ? BOLD_FONT : NORMAL_FONT);
+				formatted_lines[i].emplace_back(move(t), font, color);
 			}
 
 			// No more tags found
