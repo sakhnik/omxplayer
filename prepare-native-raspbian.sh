@@ -8,7 +8,7 @@ check_dpkg_installed() {
 	fi
 }
 
-echo "Modifying for native build on Debian"
+echo "Running checks for native build on Raspberry PI OS"
 
 if [ -z `which sudo` ] ; then
     apt-get install -y sudo
@@ -17,7 +17,6 @@ fi
 REQUIRED_PKGS_STRETCH="libva1 libssl1.0-dev"
 REQUIRED_PKGS_BUSTER="libva2 libssl-dev"
 REQUIRED_PKGS="ca-certificates git binutils libasound2-dev libpcre3-dev libidn11-dev libboost-dev libcairo2-dev libdvdread-dev libdbus-1-dev libssh-dev gcc g++ sed pkg-config"
-MISSING_PKGS=""
 
 MAJOR_VERSION=`lsb_release -c | sed 's/Codename:[ \t]//'`
 if [ "$MAJOR_VERSION" = "buster" ]; then
@@ -29,8 +28,8 @@ else
 	exit 1
 fi
 
-echo "Checking dpkg database for missing packages"
-
+echo "Checking dpkg database for required packages"
+MISSING_PKGS=""
 for pkg in $REQUIRED_PKGS
 do
 	check_dpkg_installed $pkg
@@ -39,10 +38,10 @@ echo ""
 if [ ! -z "$MISSING_PKGS" ]; then
 	echo "You are missing required packages."
 	echo "Run sudo apt-get update && sudo apt-get install $MISSING_PKGS"
-	exit 1
 else
-	echo "All dependencies met"
+	echo "All required packages are installed."
 fi
+echo ""
 
 echo "Checking for OMX development headers"
 # These can either be supplied by dpkg or via rpi-update.
@@ -58,10 +57,30 @@ if [ ! -z "$MISSING_PKGS" ]; then
 	echo "You are missing required packages."
 	echo "Run sudo apt-get update && sudo apt-get install $MISSING_PKGS"
 	echo "Alternative: install rpi-update with sudo wget http://goo.gl/1BOfJ -O /usr/local/bin/rpi-update && sudo chmod +x /usr/local/bin/rpi-update && sudo rpi-update"
-	exit 1
 else
-	echo "All dependencies met"
+	echo "All development headers are installed"
 fi
+echo ""
+
+echo "Checking dpkg database for optional packages"
+OPTIONAL_PKGS="libavutil-dev libswresample-dev libavcodec-dev libavformat-dev libswscale-dev"
+MISSING_PKGS=""
+for pkg in $OPTIONAL_PKGS
+do
+	check_dpkg_installed $pkg
+done
+echo ""
+if [ ! -z "$MISSING_PKGS" ]; then
+	echo "You are missing optional packages. These packages are needed"
+	echo "if you wish to compile omxplayer using external libraries."
+	echo "To install them you can run the following command:\n"
+	echo "Run sudo apt-get update && sudo apt-get install $MISSING_PKGS\n"
+	echo "Alternatively you can download and compile the libraries by running 'make ffmpeg'."
+else
+	echo "All optional packages are installed. If all the required packages are also"
+	echo "installed, you may compile omxplayer using external ffmpeg libraries."
+fi
+echo ""
 
 echo "Checking amount of RAM in system"
 #We require ~230MB of total RAM
