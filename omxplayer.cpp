@@ -433,11 +433,16 @@ void SetVideoMode(int width, int height, int fpsrate, int fpsscale, FORMAT_3D_T 
     delete[] supported_modes;
 }
 
+// Check file exists and is readable
 bool Exists(const std::string& path)
 {
-  struct stat buf;
-  auto error = stat(path.c_str(), &buf);
-  return !error || errno != ENOENT;
+  FILE *file;
+  if((file = fopen(path.c_str(), "r")))
+  {
+    fclose(file);
+    return true;
+  }
+  return false;
 }
 
 bool IsURL(const std::string& str)
@@ -957,7 +962,7 @@ int main(int argc, char *argv[])
 
   auto ExitFileNotFound = [](const std::string& path)
   {
-    printf("File \"%s\" not found.\n", path.c_str());
+    printf("File \"%s\" not found or cannot be read.\n", path.c_str());
     return EXIT_FAILURE;
   };
 
@@ -1991,8 +1996,10 @@ do_exit:
       m_DvdPlayer = NULL;
     }
 
-    //play next file in playlist if there is one...
-    if(!m_is_dvd_device && m_playlist.ChangeFile(m_next_prev_file, m_filename)) {
+    // Play next file in playlist if there is one...
+    // 'Exists' checks if file is readable
+    if(!m_is_dvd_device && m_playlist.ChangeFile(m_next_prev_file, m_filename)
+        && Exists(m_filename)) {
       m_firstfile = false;
       m_next_prev_file = 0;
       goto change_file;
