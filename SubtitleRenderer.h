@@ -23,10 +23,8 @@
 
 #include <cairo.h>
 
+class CRegExp;
 using namespace std;
-
-class SubtitleText;
-class SubtitleTagParser;
 
 class SubtitleRenderer {
 	public:
@@ -46,6 +44,30 @@ class SubtitleRenderer {
 		void unprepare();
 
 	private:
+
+		class SubtitleText
+		{
+			public:
+				string text;
+				int font;
+				int color;
+
+				cairo_glyph_t *glyphs = NULL;
+				int num_glyphs = -1;
+
+				SubtitleText(string t, int f, int c)
+				: text(t), font(f), color(c)
+				{
+				};
+		};
+
+		vector<vector<SubtitleText> > ParseLines(vector<string> &text_lines);
+		int hex2int(const char *hex);
+
+		CRegExp *m_tags;
+		CRegExp *m_font_color_html;
+		CRegExp *m_font_color_curly;
+
 		void set_font(int new_font_type);
 		void set_color(int new_color);
 
@@ -83,9 +105,6 @@ class SubtitleRenderer {
 		int m_max_lines;
 		int m_image_width; // must be evenly divisible by 16
 		int m_image_height;  // must be evenly divisible by 16
-
-		// tag parser
-		SubtitleTagParser *m_tag_parser;
 
 		// font properties
 		int m_padding;
