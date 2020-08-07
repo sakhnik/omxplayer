@@ -130,6 +130,7 @@ void changeImageLayer(int new_layer)
 	// change layer to new_layer
 	int ret = vc_dispmanx_element_change_attributes(m_update, image_layer.element,
 		ELEMENT_CHANGE_LAYER, new_layer, 255, NULL, NULL, 0, DISPMANX_NO_ROTATE);
+	assert( ret == 0 );
 
 	ret = vc_dispmanx_update_submit_sync( m_update );
 	assert( ret == 0 );

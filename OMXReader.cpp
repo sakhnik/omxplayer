@@ -1104,17 +1104,15 @@ void OMXReader::FreePacket(OMXPacket *pkt)
   {
     if(pkt->data)
       free(pkt->data);
-    free(pkt);
+    delete pkt;
   }
 }
 
 OMXPacket *OMXReader::AllocPacket(int size)
 {
-  OMXPacket *pkt = (OMXPacket *)malloc(sizeof(OMXPacket));
+  OMXPacket *pkt = new OMXPacket;
   if(pkt)
   {
-    memset(pkt, 0, sizeof(OMXPacket));
-
     pkt->data = (uint8_t*) malloc(size + AV_INPUT_BUFFER_PADDING_SIZE);
     if(!pkt->data)
     {

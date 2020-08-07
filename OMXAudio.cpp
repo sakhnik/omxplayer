@@ -263,7 +263,7 @@ bool COMXAudio::PortSettingsChanged()
 
     OMX_CONFIG_BRCMAUDIODESTINATIONTYPE audioDest;
     OMX_INIT_STRUCTURE(audioDest);
-    strncpy((char *)audioDest.sName, "hdmi", strlen("hdmi"));
+    strcpy((char *)audioDest.sName, "hdmi");
     omx_err = m_omx_render_hdmi.SetConfig(OMX_IndexConfigBrcmAudioDestination, &audioDest);
     if (omx_err != OMX_ErrorNone)
     {
