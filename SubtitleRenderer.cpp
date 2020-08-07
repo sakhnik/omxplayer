@@ -32,7 +32,7 @@ using namespace std;
 
 SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_size,
 	bool centered, bool box_opacity, unsigned int lines)
-: m_alignment(centered ? CENTER_ALIGN : LEFT_ALIGN),
+: m_centered(centered),
   m_ghost_box(box_opacity),
   m_max_lines(lines)
 {
@@ -64,7 +64,7 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	int margin_left;
 	int assumed_longest_subtitle_line_in_pixels = m_font_size * 22.5;
 	m_screen_center = screen_width / 2;
-	if(m_alignment == CENTER_ALIGN)
+	if(m_centered)
 		margin_left = 0;
 	else if(screen_width > assumed_longest_subtitle_line_in_pixels)
 		margin_left = (int)(screen_width - assumed_longest_subtitle_line_in_pixels) / 2;
@@ -167,8 +167,11 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 {
 	if(m_prepared) unprepare();
 
-	vector<vector<SubtitleText> > parsed_lines = ParseLines(lines);
+	parse_lines(lines);
+}
 
+void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed_lines)
+{
 	// create surface
 	m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, m_image_width, m_image_height);
 	m_cr = cairo_create(m_surface);
@@ -221,11 +224,8 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 		box_width += cursor_x_position;
 
 		// aligned text
-		if(m_alignment == CENTER_ALIGN || m_alignment == RIGHT_ALIGN) {
-			if(m_alignment == RIGHT_ALIGN)
-				cursor_x_position = m_image_width - box_width;
-			else
-				cursor_x_position = m_screen_center - (box_width / 2);
+		if(m_centered) {
+			cursor_x_position = m_screen_center - (box_width / 2);
 
 			for(int j = 0; j < text_parts; j++) {
 				cairo_glyph_t *p = parsed_lines[i][j].glyphs;
@@ -293,7 +293,7 @@ void SubtitleRenderer::unprepare()
 }
 
 // Tag parser functions
-vector<vector<SubtitleRenderer::SubtitleText> > SubtitleRenderer::ParseLines(vector<string> &text_lines)
+void SubtitleRenderer::parse_lines(vector<string> &text_lines)
 {
 	vector<vector<SubtitleText> > formatted_lines(text_lines.size());
 
@@ -347,7 +347,7 @@ vector<vector<SubtitleRenderer::SubtitleText> > SubtitleRenderer::ParseLines(vec
 		}
 	}
 
-	return formatted_lines;
+	make_subtitle_image(formatted_lines);
 }
 
 // expects 6 lowercase, digit hex string

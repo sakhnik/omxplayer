@@ -61,7 +61,8 @@ class SubtitleRenderer {
 				};
 		};
 
-		vector<vector<SubtitleText> > ParseLines(vector<string> &text_lines);
+		void parse_lines(vector<string> &text_lines);
+		void make_subtitle_image(vector<vector<SubtitleText> > &parsed_lines);
 		int hex2int(const char *hex);
 
 		CRegExp *m_tags;
@@ -75,12 +76,6 @@ class SubtitleRenderer {
 			NORMAL_FONT,
 			ITALIC_FONT,
 			BOLD_FONT,
-		};
-
-		enum {
-			LEFT_ALIGN,
-			CENTER_ALIGN,
-			RIGHT_ALIGN,
 		};
 
 		bool m_prepared = false;
@@ -99,7 +94,7 @@ class SubtitleRenderer {
 		cairo_pattern_t *m_black_font_outline;
 
 		// positional elements
-		int m_alignment;
+		bool m_centered;
 		int m_screen_center;
 		bool m_ghost_box;
 		int m_max_lines;
