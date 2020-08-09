@@ -23,7 +23,7 @@ from the Makefile so it can inherit the correct environmental variables.
 make ffmpeg-download   Download a specific branch of ffmpeg from the git repository
 make ffmpeg-configure  Run the configure script
 make ffmpeg-make       Make the static object files
-make ffmpeg-install    Copies header and static onject file to ../ffmpeg_compiled
+make ffmpeg-install    Copy the header and static object files to ../ffmpeg_compiled
 make ffmpeg            All the above commands in order
 make ffmpeg-clean      Runs 'make clean'
 EOF
@@ -54,7 +54,7 @@ configure_ffmpeg()
 		--enable-gpl \
 		--enable-version3 \
 		--enable-protocols \
-		--enable-libssh \
+		--disable-libssh \
 		--enable-nonfree \
 		--enable-openssl \
 		--enable-pthreads \

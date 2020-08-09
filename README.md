@@ -100,7 +100,7 @@ Usage: omxplayer [OPTIONS] [FILE]
         --align left/center     Subtitle alignment (default: left)
         --no-ghost-box          No semitransparent boxes behind subtitles
         --lines n               Number of lines in the subtitle buffer (default: 3)
-        --aspect-mode type      Letterbox, fill, stretch. Default: stretch if win is specified, letterbox otherwise
+        --aspect-mode type      Letterbox, fill, stretch (default: letterbox)
         --audio_fifo  n         Size of audio output fifo in seconds
         --video_fifo  n         Size of video output fifo in MB
         --audio_queue n         Size of audio input queue in MB

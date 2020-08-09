@@ -9,7 +9,7 @@ INCLUDES+=-I./ -Ilinux -Iffmpeg_compiled/usr/local/include/ -I /usr/include/dbus
 DIST ?= omxplayer-dist
 STRIP ?= strip
 
-SRC=		linux/XMemUtils.cpp \
+SRC=	linux/XMemUtils.cpp \
 		linux/OMXAlsa.cpp \
 		utils/log.cpp \
 		DynamicDll.cpp \
@@ -68,7 +68,7 @@ keys.h: README.md Makefile
 	> $@
 
 omxplayer.1: README.md
-	sed -e '/DOWNLOADING/,/omxplayer-dist/ d; /DBUS/,$$ d' $< >MAN
+	sed -e '/This fork/,/sudo make install/ d; /DBUS/,$$ d' $< | sed -r 's/\[(.*?)\]\(http[^\)]*\)/\1/g' > MAN
 	curl -F page=@MAN http://mantastic.herokuapp.com 2>/dev/null >$@
 
 clean:
@@ -111,14 +111,16 @@ dist:
 	--transform 's,^README.md$$,/usr/share/doc/omxplayer/README,S' \
 	--transform 's,^omxplayer.1$$,/usr/share/man/man1/omxplayer.1,S' \
 	--transform 's,^ffmpeg_compiled/usr/local/lib/,/usr/lib/omxplayer/,S' \
-	omxplayer omxplayer.bin COPYING README.md omxplayer.1 ffmpeg_compiled/usr/local/lib/*.so*
+	omxplayer omxplayer.bin COPYING README.md omxplayer.1 \
+	`if [ -e ffmpeg_compiled ]; then echo ffmpeg_compiled/usr/local/lib/*.so*; fi`
 
 install:
-	cp omxplayer omxplayer.bin /usr/bin
-	cp COPYING /usr/share/doc/omxplayer
+	cp omxplayer omxplayer.bin /usr/bin/
+	mkdir -p /usr/share/doc/omxplayer
+	cp COPYING /usr/share/doc/omxplayer/COPYING
 	cp README.md /usr/share/doc/omxplayer/README
 	cp omxplayer.1 /usr/share/man/man1
-	cp -P ffmpeg_compiled/usr/local/lib/*.so* /usr/lib/omxplayer/
+	if [ -e ffmpeg_compiled ]; then mkdir /usr/lib/omxplayer && cp -P ffmpeg_compiled/usr/local/lib/*.so* /usr/lib/omxplayer/; fi
 
 uninstall:
 	rm -rf /usr/bin/omxplayer

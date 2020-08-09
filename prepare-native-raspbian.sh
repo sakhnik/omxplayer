@@ -1,88 +1,48 @@
 #!/bin/sh
 
 check_dpkg_installed() {
-	echo -n "."
-	if [ $(dpkg-query -W -f='${Status}' $1 2>/dev/null | grep -c "ok installed") -eq 0 ];
-	then
-		MISSING_PKGS="$MISSING_PKGS $1"
-	fi
+	MISSING_PKGS=""
+	for pkg in $@
+	do
+		echo -n "."
+		if [ $(dpkg-query -W -f='${Status}' $pkg 2>/dev/null | grep -c "ok installed") -eq 0 ];
+		then
+			MISSING_PKGS="$MISSING_PKGS $pkg"
+		fi
+	done
 }
 
-echo "Running checks for native build on Raspberry PI OS"
+#missing packages
+MISSING_OMX_PKGS=""
+MISSING_DEV_HEADERS=""
+MISSING_COMPILE_FFMPEG_PKGS=""
+MISSING_EXTERNAL_FFMPEG_PKGS=""
 
-if [ -z `which sudo` ] ; then
-    apt-get install -y sudo
-fi
+# packages
+REQUIRED_OMX_PKGS="git sed gcc g++ pkg-config binutils libasound2-dev libpcre3-dev libboost-dev libcairo2-dev libdvdread-dev libdbus-1-dev"
+REQUIRED_DEV_HEADERS="libraspberrypi-dev libraspberrypi0 libraspberrypi-bin"
+COMPILE_FFMPEG_PKGS="ca-certificates"
+COMPILE_FFMPEG_PKGS_STRETCH="libva1 libssl1.0-dev"
+COMPILE_FFMPEG_PKGS_BUSTER="libva2 libssl-dev"
+EXTERNAL_FFMPEG_PKGS="libavutil-dev libswresample-dev libavcodec-dev libavformat-dev libswscale-dev"
 
-REQUIRED_PKGS_STRETCH="libva1 libssl1.0-dev"
-REQUIRED_PKGS_BUSTER="libva2 libssl-dev"
-REQUIRED_PKGS="ca-certificates git binutils libasound2-dev libpcre3-dev libidn11-dev libboost-dev libcairo2-dev libdvdread-dev libdbus-1-dev libssh-dev gcc g++ sed pkg-config"
+echo -n "Running checks for native build on Raspberry PI OS"
 
-MAJOR_VERSION=`lsb_release -c | sed 's/Codename:[ \t]//'`
+MAJOR_VERSION=`lsb_release -sc`
 if [ "$MAJOR_VERSION" = "buster" ]; then
-	REQUIRED_PKGS="$REQUIRED_PKGS_BUSTER $REQUIRED_PKGS"
+	COMPILE_FFMPEG_PKGS="$COMPILE_FFMPEG_PKGS $COMPILE_FFMPEG_PKGS_BUSTER"
+	echo " (Buster)"
 elif [ "$MAJOR_VERSION" = "stretch" ]; then
-	REQUIRED_PKGS="$REQUIRED_PKGS_STRETCH $REQUIRED_PKGS"
+	COMPILE_FFMPEG_PKGS="$COMPILE_FFMPEG_PKGS $COMPILE_FFMPEG_PKGS_STRETCH"
+	echo " (Stretch)"
 else
-	echo "This script does not support $major_version"
+	echo "\nThis script does not support $major_version"
 	exit 1
 fi
 
-echo "Checking dpkg database for required packages"
-MISSING_PKGS=""
-for pkg in $REQUIRED_PKGS
-do
-	check_dpkg_installed $pkg
-done
-echo ""
-if [ ! -z "$MISSING_PKGS" ]; then
-	echo "You are missing required packages."
-	echo "Run sudo apt-get update && sudo apt-get install $MISSING_PKGS"
-else
-	echo "All required packages are installed."
-fi
-echo ""
+echo =======================================================================================
 
-echo "Checking for OMX development headers"
-# These can either be supplied by dpkg or via rpi-update.
-# First, check dpkg to avoid messing with dpkg-managed files!
-REQUIRED_PKGS="libraspberrypi-dev libraspberrypi0 libraspberrypi-bin"
-MISSING_PKGS=""
-for pkg in $REQUIRED_PKGS
-do
-	check_dpkg_installed $pkg
-done
-echo ""
-if [ ! -z "$MISSING_PKGS" ]; then
-	echo "You are missing required packages."
-	echo "Run sudo apt-get update && sudo apt-get install $MISSING_PKGS"
-	echo "Alternative: install rpi-update with sudo wget http://goo.gl/1BOfJ -O /usr/local/bin/rpi-update && sudo chmod +x /usr/local/bin/rpi-update && sudo rpi-update"
-else
-	echo "All development headers are installed"
-fi
-echo ""
-
-echo "Checking dpkg database for optional packages"
-OPTIONAL_PKGS="libavutil-dev libswresample-dev libavcodec-dev libavformat-dev libswscale-dev"
-MISSING_PKGS=""
-for pkg in $OPTIONAL_PKGS
-do
-	check_dpkg_installed $pkg
-done
-echo ""
-if [ ! -z "$MISSING_PKGS" ]; then
-	echo "You are missing optional packages. These packages are needed"
-	echo "if you wish to compile omxplayer using external libraries."
-	echo "To install them you can run the following command:\n"
-	echo "Run sudo apt-get update && sudo apt-get install $MISSING_PKGS\n"
-	echo "Alternatively you can download and compile the libraries by running 'make ffmpeg'."
-else
-	echo "All optional packages are installed. If all the required packages are also"
-	echo "installed, you may compile omxplayer using external ffmpeg libraries."
-fi
-echo ""
-
-echo "Checking amount of RAM in system"
+echo "Checking amount of RAM in system\n"
 #We require ~230MB of total RAM
 TOTAL_RAM=`grep MemTotal /proc/meminfo | awk '{print $2}'`
 TOTAL_SWAP=`grep SwapTotal /proc/meminfo | awk '{print $2}'`
@@ -100,5 +60,96 @@ if [ "$TOTAL_RAM" -lt 230000 ]; then
 		echo "Warning: to run compiled omxplayer please start raspi-config again and set memory_split to at least 128."
 	fi
 else
-	echo "You should have enough RAM available to successfully compile and run omxplayer."
+	echo "Looks good"
 fi
+echo ""
+
+echo =======================================================================================
+
+# These can either be supplied by dpkg or via rpi-update.
+# First, check dpkg to avoid messing with dpkg-managed files!
+echo -n "Checking for OMX development headers"
+check_dpkg_installed $REQUIRED_DEV_HEADERS
+MISSING_DEV_HEADERS=$MISSING_PKGS
+echo "done\n"
+
+if [ ! -z "$MISSING_DEV_HEADERS" ]; then
+	echo "You are missing the following OMX development headers:\n"
+
+	echo $MISSING_DEV_HEADERS
+
+	echo "\nYou can install these using apt-get or by using the following command:\n"
+	echo "rpi-update with sudo wget http://goo.gl/1BOfJ -O /usr/local/bin/rpi-update && sudo chmod +x /usr/local/bin/rpi-update && sudo rpi-update"
+else
+	echo "Looks good"
+fi
+echo ""
+
+echo =======================================================================================
+
+echo -n "Checking for packages required to compile omxplayer"
+check_dpkg_installed $REQUIRED_OMX_PKGS
+MISSING_OMX_PKGS=$MISSING_PKGS
+echo "done\n"
+
+if [ ! -z "$MISSING_OMX_PKGS" ]; then
+	echo "You are missing the following required packages:\n"
+	echo $MISSING_OMX_PKGS
+else
+	echo "Looks good"
+fi
+echo ""
+
+echo =======================================================================================
+
+echo -n "Checking for packages required to compile ffmpeg"
+check_dpkg_installed $COMPILE_FFMPEG_PKGS
+MISSING_COMPILE_FFMPEG_PKGS=$MISSING_PKGS
+echo "done\n"
+
+if [ ! -z "$MISSING_COMPILE_FFMPEG_PKGS" ]; then
+	echo "If you wish to compile your own ffmpeg development libraries you will need"
+	echo "to install the following packages:\n"
+	echo $MISSING_COMPILE_FFMPEG_PKGS
+else
+	echo "Looks good. If you wish, you can compile ffmpeg by running 'make ffmpeg'"
+fi
+echo ""
+
+echo =======================================================================================
+
+echo -n "Checking for ffmpeg development libraries"
+check_dpkg_installed $EXTERNAL_FFMPEG_PKGS
+MISSING_EXTERNAL_FFMPEG_PKGS=$MISSING_PKGS
+echo "done\n"
+
+if [ ! -z "$MISSING_EXTERNAL_FFMPEG_PKGS" ]; then
+	echo "If you wish to compile omxplayer against external ffmpeg development"
+	echo "libraries you will need to install the following packages:\n"
+	echo $MISSING_EXTERNAL_FFMPEG_PKGS
+else
+	echo "Looks good. You may compile omxplayer without compiling ffmpeg."
+fi
+echo ""
+
+echo =======================================================================================
+
+if [ -z "$MISSING_OMX_PKGS" ] && [ -z "$MISSING_DEV_HEADERS" ]; then
+	if [ -z "$MISSING_EXTERNAL_FFMPEG_PKGS" ]; then
+		echo "Your kit looks good.\n"
+		echo "You make proceed to compile and install omxplayer by running:\n"
+		echo "make && sudo make install\n"
+		exit 0
+	elif [ -z "$MISSING_COMPILE_FFMPEG_PKGS" ]; then
+		echo "Your kit looks good.\n"
+		echo "You do not have the external ffmpeg development libraries installed, but you"
+		echo "may still compile your own by running:\n"
+		echo "make ffmpeg\n"
+		echo "You may then proceed to compile and install omxplayer by running:\n"
+		echo "make && sudo make install\n"
+		exit 0
+	fi
+fi
+
+echo "You need to install the required dependancies before proceeding.\n"
+echo "Remember to run 'sudo apt-get update' first.\n"
