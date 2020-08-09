@@ -173,6 +173,7 @@ static offset_t dvdread_file_seek(void *h, offset_t pos, int whence)
 
 bool OMXReader::Open(
 	std::string filename,
+	bool is_url,
 	bool dump_format,
 	bool live,
 	float timeout,
@@ -236,9 +237,6 @@ bool OMXReader::Open(
   // if format can be nonblocking, let's use that
   m_pFormatContext->flags |= AVFMT_FLAG_NONBLOCK;
 
-  if(m_filename.substr(0, 8) == "shout://" )
-    m_filename.replace(0, 8, "http://");
-
   if(m_DvdPlayer)
   {
     CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", m_filename.c_str());
@@ -265,15 +263,11 @@ bool OMXReader::Open(
       return false;
     }
   }
-  else 
-  if(m_filename.substr(0,6) == "mms://" || m_filename.substr(0,7) == "mmsh://" ||
-      m_filename.substr(0,7) == "mmst://" || m_filename.substr(0,7) == "mmsu://" ||
-      m_filename.substr(0,7) == "http://" || m_filename.substr(0,8) == "https://" ||
-      m_filename.substr(0,7) == "rtmp://" || m_filename.substr(0,6) == "udp://" ||
-      m_filename.substr(0,7) == "rtsp://" || m_filename.substr(0,6) == "rtp://" ||
-      m_filename.substr(0,6) == "ftp://" || m_filename.substr(0,7) == "sftp://" ||
-      m_filename.substr(0,6) == "tcp://" || m_filename.substr(0,7) == "unix://")
+  else if(is_url)
   {
+    if(m_filename.substr(0, 8) == "shout://" )
+      m_filename.replace(0, 8, "http://");
+
     // ffmpeg dislikes the useragent from AirPlay urls
     //int idx = m_filename.Find("|User-Agent=AppleCoreMedia");
     size_t idx = m_filename.find("|");
