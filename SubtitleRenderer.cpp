@@ -201,7 +201,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 			cairo_status_t status = cairo_scaled_font_text_to_glyphs(
 					cairo_get_scaled_font(m_cr),
 					cursor_x_position + m_padding,
-					cursor_y_position - (m_padding / 2),
+					cursor_y_position - (m_padding / 4),
 					parsed_lines[i][j].text.c_str(), -1,
 					&parsed_lines[i][j].glyphs,
 					&parsed_lines[i][j].num_glyphs,
