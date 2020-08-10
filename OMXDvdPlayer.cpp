@@ -226,18 +226,38 @@ int OMXDvdPlayer::Read(unsigned char *lpBuf, int64_t uiBufSize)
 	if(!m_open)
 		return 0;
 
+	// capture pos in cpos to avoid it changing midway through read
+	int cpos;
+	if(new_pos > -1) {
+		cpos = new_pos;
+		new_pos = -1;
+	} else {
+		cpos = pos;
+	}
+
 	// read in block in whole numbers
 	int blocks_to_read = uiBufSize / 2048;
 
-	if(pos + blocks_to_read > total_blocks) {
-		blocks_to_read = total_blocks - pos;
+	if(cpos + blocks_to_read > total_blocks) {
+		blocks_to_read = total_blocks - cpos;
 
 		if(blocks_to_read < 1)
 			return 0;
 	}
 
-	int read_blocks = DVDReadBlocks(dvd_track, titles[current_track].first_sector + pos, blocks_to_read, lpBuf);
-	pos += read_blocks;
+	int read_blocks;
+	if(pos_byte_offset > 0) {
+		unsigned char *buffer;
+		buffer = (unsigned char *)malloc(uiBufSize);
+		read_blocks = DVDReadBlocks(dvd_track, titles[current_track].first_sector + cpos, blocks_to_read, buffer);
+		memcpy(lpBuf, buffer + pos_byte_offset, (read_blocks * 2048) - pos_byte_offset);
+		pos_byte_offset = 0;
+		free(buffer);
+	} else {
+		read_blocks = DVDReadBlocks(dvd_track, titles[current_track].first_sector + cpos, blocks_to_read, lpBuf);
+	}
+
+	pos = cpos + read_blocks;
 	return read_blocks * 2048;
 }
 
@@ -248,25 +268,12 @@ int64_t OMXDvdPlayer::getCurrentTrackLength()
 
 int64_t OMXDvdPlayer::Seek(int64_t iFilePosition, int iWhence)
 {
-	if (!m_open)
+	if (!m_open || iWhence != SEEK_SET)
 		return -1;
 
 	// seek in blocks
-	int seek_size = iFilePosition / 2048;
-
-	switch (iWhence) {
-		case SEEK_SET:
-			pos = seek_size;
-			break;
-		case SEEK_CUR:
-			pos += seek_size;
-			break;
-		case SEEK_END:
-			pos = total_blocks - seek_size;
-			break;
-		default:
-			return -1;
-	}
+	new_pos = iFilePosition / 2048;
+	pos_byte_offset = iFilePosition % 2048;
 
 	return 0;
 }
@@ -293,10 +300,10 @@ bool OMXDvdPlayer::SeekChapter(int chapter)
 {
 	// seeking next chapter from last causes eof
 	if(chapter > titles[current_track].chapter_count) {
-		pos = total_blocks;
+		new_pos = total_blocks;
 		return false;
 	} else {
-		pos = titles[current_track].chapters[chapter-1];
+		new_pos = titles[current_track].chapters[chapter-1];
 		return true;
 	}
 }
