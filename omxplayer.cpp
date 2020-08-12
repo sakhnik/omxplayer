@@ -1431,31 +1431,61 @@ int main(int argc, char *argv[])
         }
         break;
       case KeyConfig::ACTION_PREVIOUS_CHAPTER:
-        if(m_omx_reader.GetChapterCount() > 0)
         {
-          if(m_omx_reader.SeekChapter(m_omx_reader.GetChapter() - 1, &startpts))
-            DISPLAY_TEXT_LONG(strprintf("Chapter %d", m_omx_reader.GetChapter()));
-          FlushStreams(startpts);
-          m_seek_flush = true;
-          m_chapter_seek = true;
-        }
-        else
-        {
-          m_incr = -600.0;
+          int current_chapter = m_omx_reader.GetChapter();
+          int total_chapters = m_omx_reader.GetChapterCount();
+
+          if(current_chapter > -1 && total_chapters > 0)
+          {
+            int go_to_ch = current_chapter - 1;
+
+            if(current_chapter == 0)
+            {
+              m_send_eos = 1;
+              m_next_prev_file = -1;
+              goto do_exit;
+            }
+            else if(m_omx_reader.SeekChapter(go_to_ch, &startpts))
+            {
+              DISPLAY_TEXT_LONG(strprintf("Chapter %d", go_to_ch + 1));
+              FlushStreams(startpts);
+              m_seek_flush = true;
+              m_chapter_seek = true;
+            }
+          }
+          else
+          {
+            m_incr = -600.0;
+          }
         }
         break;
       case KeyConfig::ACTION_NEXT_CHAPTER:
-        if(m_omx_reader.GetChapterCount() > 0)
         {
-          if(m_omx_reader.SeekChapter(m_omx_reader.GetChapter() + 1, &startpts))
-            DISPLAY_TEXT_LONG(strprintf("Chapter %d", m_omx_reader.GetChapter()));
-          FlushStreams(startpts);
-          m_seek_flush = true;
-          m_chapter_seek = true;
-        }
-        else
-        {
-          m_incr = 600.0;
+          int current_chapter = m_omx_reader.GetChapter();
+          int total_chapters = m_omx_reader.GetChapterCount();
+
+          if(current_chapter > -1 && total_chapters > 0)
+          {
+            int go_to_ch = current_chapter + 1;
+
+            if(go_to_ch >= total_chapters)
+            {
+              m_send_eos = 1;
+              m_next_prev_file = 1;
+              goto do_exit;
+            }
+            else if(m_omx_reader.SeekChapter(go_to_ch, &startpts))
+            {
+              DISPLAY_TEXT_LONG(strprintf("Chapter %d", go_to_ch + 1));
+              FlushStreams(startpts);
+              m_seek_flush = true;
+              m_chapter_seek = true;
+            }
+          }
+          else
+          {
+            m_incr = 600.0;
+          }
         }
         break;
       case KeyConfig::ACTION_PREVIOUS_FILE:

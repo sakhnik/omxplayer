@@ -205,6 +205,7 @@ bool OMXDvdPlayer::OpenTrack(int ct)
 
 	// seek to beginning to track
 	pos = 0;
+	pos_locked = false;
 
 	// blocks for this track
 	total_blocks = titles[current_track].last_sector - titles[current_track].first_sector + 1;
@@ -227,13 +228,8 @@ int OMXDvdPlayer::Read(unsigned char *lpBuf, int64_t uiBufSize)
 		return 0;
 
 	// capture pos in cpos to avoid it changing midway through read
-	int cpos;
-	if(new_pos > -1) {
-		cpos = new_pos;
-		new_pos = -1;
-	} else {
-		cpos = pos;
-	}
+	int cpos = pos;
+	pos_locked = false;
 
 	// read in block in whole numbers
 	int blocks_to_read = uiBufSize / 2048;
@@ -257,7 +253,7 @@ int OMXDvdPlayer::Read(unsigned char *lpBuf, int64_t uiBufSize)
 		read_blocks = DVDReadBlocks(dvd_track, titles[current_track].first_sector + cpos, blocks_to_read, lpBuf);
 	}
 
-	pos = cpos + read_blocks;
+	if(!pos_locked) pos = cpos + read_blocks;
 	return read_blocks * 2048;
 }
 
@@ -272,7 +268,8 @@ int64_t OMXDvdPlayer::Seek(int64_t iFilePosition, int iWhence)
 		return -1;
 
 	// seek in blocks
-	new_pos = iFilePosition / 2048;
+	pos_locked = true;
+	pos = iFilePosition / 2048;
 	pos_byte_offset = iFilePosition % 2048;
 
 	return 0;
@@ -296,16 +293,10 @@ int OMXDvdPlayer::TotalChapters()
 	return titles[current_track].chapter_count;
 }
 
-bool OMXDvdPlayer::SeekChapter(int chapter)
+void OMXDvdPlayer::SeekChapter(int chapter)
 {
-	// seeking next chapter from last causes eof
-	if(chapter > titles[current_track].chapter_count) {
-		new_pos = total_blocks;
-		return false;
-	} else {
-		new_pos = titles[current_track].chapters[chapter-1];
-		return true;
-	}
+	pos_locked = true;
+	pos = titles[current_track].chapters[chapter];
 }
 
 int OMXDvdPlayer::GetChapter()
@@ -315,9 +306,9 @@ int OMXDvdPlayer::GetChapter()
 	for (i=0; i<titles[current_track].chapter_count-1; i++) {
 		if(cpos >= titles[current_track].chapters[i] &&
 				cpos < titles[current_track].chapters[i+1])
-			return i + 1;
+			return i;
 	}
-	return i + 1;
+	return i;
 }
 
 void OMXDvdPlayer::CloseTrack()

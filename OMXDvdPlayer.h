@@ -22,7 +22,7 @@ class OMXDvdPlayer
 	int64_t GetLength();
 	int64_t getCurrentTrackLength();
 	int TotalChapters();
-	bool SeekChapter(int chapter);
+	void SeekChapter(int chapter);
 	int GetChapter();
 	int GetCurrentTrack() const { return current_track; }
 	void GetStreamInfo(OMXStream *stream);
@@ -41,7 +41,7 @@ class OMXDvdPlayer
 	bool m_open = false;
 	bool m_allocated = false;
 	volatile int pos = 0;
-	int new_pos = -1;
+	bool pos_locked = false;
 	int pos_byte_offset = 0;
 
 	dvd_reader_t *dvd_device = NULL;
