@@ -22,8 +22,7 @@ class OMXDvdPlayer
 	int64_t GetLength();
 	int64_t getCurrentTrackLength();
 	int TotalChapters();
-	void SeekChapter(int chapter);
-	int GetChapter();
+	float GetChapterStartTime(int i);
 	int GetCurrentTrack() const { return current_track; }
 	void GetStreamInfo(OMXStream *stream);
 	bool MetaDataCheck(int audiostream_count, int subtitle_count);
@@ -59,7 +58,7 @@ class OMXDvdPlayer
 		int vts;
 		float length;
 		int chapter_count;
-		int *chapters;
+		float *chapters;
 		int audiostream_count;
 		int subtitle_count;
 		struct stream_info {

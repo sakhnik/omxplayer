@@ -113,16 +113,19 @@ bool OMXDvdPlayer::Open(const std::string &filename)
 		titles[h].last_sector = last_sector;
 
 		// Chapters
-		titles[h].chapters = (int *)calloc(titles[h].chapter_count, sizeof(*titles[h].chapters));
+		titles[h].chapters = (float *)calloc(titles[h].chapter_count, sizeof(*titles[h].chapters));
 
+		float acc_chapter = 0;
 		for (int i=0; i<titles[h].chapter_count; i++) {
 			int idx = pgc->program_map[i] - 1;
-			int p = pgc->cell_playback[idx].first_sector;
-			if(p > last_sector) {
+			int first_cell_sector = pgc->cell_playback[idx].first_sector;
+			if(first_cell_sector > last_sector) {
 				titles[h].chapter_count = i;
 				break;
 			}
-			titles[h].chapters[i] = p - titles[h].first_sector;
+			titles[h].chapters[i] = acc_chapter;
+
+			acc_chapter += dvdtime2msec(&pgc->cell_playback[idx].playback_time)/1000.0;
 		}
 
 		// Streams
@@ -293,22 +296,9 @@ int OMXDvdPlayer::TotalChapters()
 	return titles[current_track].chapter_count;
 }
 
-void OMXDvdPlayer::SeekChapter(int chapter)
+float OMXDvdPlayer::GetChapterStartTime(int i)
 {
-	pos_locked = true;
-	pos = titles[current_track].chapters[chapter];
-}
-
-int OMXDvdPlayer::GetChapter()
-{
-	int cpos = pos;
-	int i;
-	for (i=0; i<titles[current_track].chapter_count-1; i++) {
-		if(cpos >= titles[current_track].chapters[i] &&
-				cpos < titles[current_track].chapters[i+1])
-			return i;
-	}
-	return i;
+	return titles[current_track].chapters[i];
 }
 
 void OMXDvdPlayer::CloseTrack()

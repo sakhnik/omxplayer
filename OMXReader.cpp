@@ -241,8 +241,6 @@ bool OMXReader::Open(
   {
     CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", m_filename.c_str());
 
-    m_chapter_count = m_DvdPlayer->TotalChapters();
-
     buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
     m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, &*m_DvdPlayer, dvdread_file_read, NULL, dvdread_file_seek);
 
@@ -750,10 +748,6 @@ bool OMXReader::GetStreams(bool dump_format)
   if(m_subtitle_count)
     SetActiveStreamInternal(OMXSTREAM_SUBTITLE, 0);
 
-  // we deal with dvd player chapters elsewhere
-  if(m_DvdPlayer)
-    return true;
-
   int i = 0;
   for(i = 0; i < MAX_OMX_CHAPTERS; i++)
   {
@@ -764,16 +758,22 @@ bool OMXReader::GetStreams(bool dump_format)
 
   m_chapter_count = 0;
 
-  if(m_video_index != -1)
+  if(m_DvdPlayer)
+  {
+    m_chapter_count = (m_DvdPlayer->TotalChapters() > MAX_OMX_CHAPTERS) ? MAX_OMX_CHAPTERS : m_DvdPlayer->TotalChapters();
+    for(i = 0; i < m_chapter_count; i++)
+    {
+      m_chapters[i].ts        = m_DvdPlayer->GetChapterStartTime(i);
+      m_chapters[i].seekto_ms = m_chapters[i].ts * 1000;
+    }
+  }
+  else if(m_video_index != -1)
   {
     //m_current_chapter = 0;
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
     m_chapter_count = (m_pFormatContext->nb_chapters > MAX_OMX_CHAPTERS) ? MAX_OMX_CHAPTERS : m_pFormatContext->nb_chapters;
     for(i = 0; i < m_chapter_count; i++)
     {
-      if(i > MAX_OMX_CHAPTERS)
-        break;
-
       AVChapter *chapter = m_pFormatContext->chapters[i];
       if(!chapter)
         continue;
@@ -1137,34 +1137,15 @@ bool OMXReader::SetActiveStream(OMXStreamType type, unsigned int index)
 
 bool OMXReader::SeekChapter(int chapter, double* startpts)
 {
-  if(m_DvdPlayer)
-  {
-    Lock();
-
-    if(m_ioContext)
-      m_ioContext->buf_ptr = m_ioContext->buf_end;
-
-    RESET_TIMEOUT(1);
-    m_DvdPlayer->SeekChapter(chapter);
-    *startpts = DVD_NOPTS_VALUE;
-    UpdateCurrentPTS();
-
-    UnLock();
-    return true;
-  }
-  else
-  {
-    if(m_pFormatContext == NULL)
-      return false;
+  if(m_chapter_count < 1)
+    return false;
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
-    AVChapter *ch = m_pFormatContext->chapters[chapter];
-    double dts = ConvertTimestamp(ch->start, ch->time_base.den, ch->time_base.num);
-    return SeekTime(DVD_TIME_TO_MSEC(dts), 0, startpts);
+  double dts = m_chapters[chapter].seekto_ms * 1000;
+  return SeekTime(DVD_TIME_TO_MSEC(dts), 0, startpts);
 #else
-    return false;
+  return false;
 #endif
-  }
 }
 
 double OMXReader::ConvertTimestamp(int64_t pts, int den, int num)
@@ -1193,22 +1174,21 @@ double OMXReader::ConvertTimestamp(int64_t pts, int den, int num)
 
 int OMXReader::GetChapter()
 {
-  if(m_DvdPlayer)
-    return m_DvdPlayer->GetChapter();
-
-  if(m_pFormatContext == NULL || m_iCurrentPts == DVD_NOPTS_VALUE)
+  if(m_chapter_count < 1 || m_iCurrentPts == DVD_NOPTS_VALUE)
     return -1;
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
-  for(unsigned i = 0; i < m_pFormatContext->nb_chapters; i++)
+  int i;
+  for(i = 0; i < m_chapter_count-1; i++)
   {
-    AVChapter *chapter = m_pFormatContext->chapters[i];
-    if(m_iCurrentPts >= ConvertTimestamp(chapter->start, chapter->time_base.den, chapter->time_base.num)
-      && m_iCurrentPts <  ConvertTimestamp(chapter->end,   chapter->time_base.den, chapter->time_base.num))
+    if(m_iCurrentPts >=   m_chapters[i].seekto_ms * 1000
+      && m_iCurrentPts <  m_chapters[i+1].seekto_ms * 1000)
       return i;
   }
-#endif
+  return i;
+#else
   return -1;
+#endif
 }
 
 void OMXReader::GetChapterName(std::string& strChapterName)
