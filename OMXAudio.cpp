@@ -1007,7 +1007,7 @@ void COMXAudio::UpdateAttenuation()
   {
     amplitudes_t &v = m_ampqueue.front();
     /* we'll also consume if queue gets unexpectedly long to avoid filling memory */
-    if (v.pts == DVD_NOPTS_VALUE || v.pts < stamp || v.pts - stamp > DVD_SEC_TO_TIME(15.0))
+    if (v.pts == DVD_NOPTS_VALUE || v.pts < stamp || v.pts - stamp > DVD_SEC_TO_MICROSEC(15.0))
       m_ampqueue.pop_front();
     else break;
   }
@@ -1017,7 +1017,7 @@ void COMXAudio::UpdateAttenuation()
     amplitudes_t &v = m_ampqueue[i];
     maxlevel = std::max(maxlevel, v.level);
     // check for maximum volume in next 200ms
-    if (v.pts != DVD_NOPTS_VALUE && v.pts < stamp + DVD_SEC_TO_TIME(0.2))
+    if (v.pts != DVD_NOPTS_VALUE && v.pts < stamp + DVD_SEC_TO_MICROSEC(0.2))
       imminent_maxlevel = std::max(imminent_maxlevel, v.level);
   }
 

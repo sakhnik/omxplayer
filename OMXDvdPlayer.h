@@ -70,6 +70,6 @@ class OMXDvdPlayer
 		int last_sector;
 	} *titles;
 
-	double frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
+	float frames_per_s[4] = {-1.0, 25.00, -1.0, 29.97};
 
 };

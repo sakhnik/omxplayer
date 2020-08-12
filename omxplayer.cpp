@@ -1327,7 +1327,7 @@ int main(int argc, char *argv[])
     double now = m_av_clock->GetAbsoluteClock();
     bool update = false;
     m_chapter_seek = false;
-    if (m_last_check_time == 0.0 || m_last_check_time + DVD_MSEC_TO_TIME(20) <= now) 
+    if (m_last_check_time == 0.0 || m_last_check_time + DVD_MILLISEC_TO_SEC(20) <= now)
     {
       update = true;
       m_last_check_time = now;
@@ -1717,9 +1717,7 @@ int main(int argc, char *argv[])
         seek_pos = (pts ? pts / DVD_TIME_BASE : last_seek_pos) + m_incr;
         last_seek_pos = seek_pos;
 
-        seek_pos *= 1000.0;
-
-        if(m_omx_reader.SeekTime((int)seek_pos, m_incr < 0.0f, &startpts))
+        if(m_omx_reader.SeekTime(seek_pos, m_incr < 0.0f, &startpts))
         {
           unsigned t = (unsigned)(startpts*1e-6);
           auto dur = m_omx_reader.GetStreamLength() / 1000;
@@ -1741,7 +1739,7 @@ int main(int argc, char *argv[])
       if (m_has_video && !m_player_video.Reset())
         ExitGentlyOnError();
 
-      CLog::Log(LOGDEBUG, "Seeked %.0f %.0f %.0f\n", DVD_MSEC_TO_TIME(seek_pos), startpts, m_av_clock->OMXMediaTime());
+      CLog::Log(LOGDEBUG, "Seeked %.0f %.0f %.0f\n", DVD_MILLISEC_TO_SEC(seek_pos), startpts, m_av_clock->OMXMediaTime());
 
       m_av_clock->OMXPause();
 
@@ -1759,12 +1757,10 @@ int main(int argc, char *argv[])
       pts = m_av_clock->OMXMediaTime();
       seek_pos = (pts / DVD_TIME_BASE);
 
-      seek_pos *= 1000.0;
-
-      if(m_omx_reader.SeekTime((int)seek_pos, m_av_clock->OMXPlaySpeed() < 0, &startpts))
+      if(m_omx_reader.SeekTime(seek_pos, m_av_clock->OMXPlaySpeed() < 0, &startpts))
         ; //FlushStreams(DVD_NOPTS_VALUE);
 
-      CLog::Log(LOGDEBUG, "Seeked %.0f %.0f %.0f\n", DVD_MSEC_TO_TIME(seek_pos), startpts, m_av_clock->OMXMediaTime());
+      CLog::Log(LOGDEBUG, "Seeked %.0f %.0f %.0f\n", DVD_MILLISEC_TO_SEC(seek_pos), startpts, m_av_clock->OMXMediaTime());
 
       //unsigned t = (unsigned)(startpts*1e-6);
       unsigned t = (unsigned)(pts*1e-6);

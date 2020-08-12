@@ -54,8 +54,7 @@ using namespace std;
 typedef struct OMXChapter
 {
   std::string name;
-  int64_t     seekto_ms;
-  double      ts;
+  double     seconds;
 } OMXChapter;
 
 class OMXReader;
@@ -141,7 +140,7 @@ public:
   void ClearStreams();
   bool Close();
   //void FlushRead();
-  bool SeekTime(int time, bool backwords, double *startpts);
+  bool SeekTime(double time, bool backwords, double *startpts);
   AVMediaType PacketType(OMXPacket *pkt);
   OMXPacket *Read();
   void Process();
@@ -168,6 +167,7 @@ public:
   void SetSpeed(int iSpeed);
   void UpdateCurrentPTS();
   double ConvertTimestamp(int64_t pts, int den, int num);
+  double ConvertTimestampSeconds(int64_t pts, int den, int num);
   int GetChapter();
   void GetChapterName(std::string& strChapterName);
   bool SeekChapter(int chapter, double* startpts);

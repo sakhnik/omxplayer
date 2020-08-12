@@ -323,7 +323,7 @@ double OMXClock::OMXMediaTime(bool lock /* = true */)
     return 0;
 
   double now = GetAbsoluteClock();
-  if (now - m_last_media_time_read > DVD_MSEC_TO_TIME(100) || m_last_media_time == 0.0)
+  if (now - m_last_media_time_read > DVD_MILLISEC_TO_SEC(100) || m_last_media_time == 0.0)
   {
     if(lock)
       Lock();
