@@ -37,6 +37,8 @@ RecentDVDStore::RecentDVDStore()
 
 void RecentDVDStore::readStore()
 {
+	m_init = true;
+
 	ifstream s(recent_dvd_file);
 
 	if(!s.is_open()) return;
@@ -54,8 +56,6 @@ void RecentDVDStore::readStore()
 	   }
 	}
 	s.close();
-
-	m_init = true;
 }
 
 int RecentDVDStore::setCurrentDVD(string key, int &track)
