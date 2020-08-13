@@ -51,12 +51,6 @@ using namespace std;
 #define MAX_STREAMS 100
 #endif
 
-typedef struct OMXChapter
-{
-  std::string name;
-  double     seconds;
-} OMXChapter;
-
 class OMXReader;
 
 typedef struct OMXPacket
@@ -114,7 +108,7 @@ protected:
   AVFormatContext           *m_pFormatContext;
   AVIOContext               *m_ioContext;
   bool                      m_eof;
-  OMXChapter                m_chapters[MAX_OMX_CHAPTERS];
+  double                    m_chapters[MAX_OMX_CHAPTERS];
   OMXStream                 m_streams[MAX_STREAMS];
   int                       m_chapter_count;
   double                    m_iCurrentPts;
@@ -141,9 +135,7 @@ public:
   bool Close();
   //void FlushRead();
   bool SeekTime(double time, bool backwords, double *startpts);
-  AVMediaType PacketType(OMXPacket *pkt);
   OMXPacket *Read();
-  void Process();
   bool GetStreams(bool dump_format = false);
   void AddStream(int id);
   bool IsActive(int stream_index);
@@ -161,7 +153,6 @@ public:
   double GetAspectRatio() { return m_aspect; };
   int GetWidth() { return m_width; };
   int GetHeight() { return m_height; };
-  OMXChapter GetChapter(unsigned int chapter) { return m_chapters[(chapter > MAX_OMX_CHAPTERS) ? MAX_OMX_CHAPTERS : chapter]; };
   static void FreePacket(OMXPacket *pkt);
   static OMXPacket *AllocPacket(int size);
   void SetSpeed(int iSpeed);
@@ -169,7 +160,6 @@ public:
   double ConvertTimestamp(int64_t pts, int den, int num);
   double ConvertTimestampSeconds(int64_t pts, int den, int num);
   int GetChapter();
-  void GetChapterName(std::string& strChapterName);
   bool SeekChapter(int chapter, double* startpts);
   int GetAudioIndex() { return (m_audio_index >= 0) ? m_streams[m_audio_index].index : -1; };
   int GetSubtitleIndex() { return (m_subtitle_index >= 0) ? m_streams[m_subtitle_index].index : -1; };
@@ -184,7 +174,6 @@ public:
 
   int GetStreamLength();
   static double NormalizeFrameduration(double frameduration);
-  bool IsMatroska() { return m_bMatroska; };
   std::string GetCodecName(OMXStreamType type);
   std::string GetCodecName(OMXStreamType type, unsigned int index);
   std::string GetStreamCodecName(AVStream *stream);

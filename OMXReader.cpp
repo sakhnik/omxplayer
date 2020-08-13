@@ -539,14 +539,6 @@ bool OMXReader::SeekTime(double time, bool backwords, double *startpts)
   return (ret >= 0);
 }
 
-AVMediaType OMXReader::PacketType(OMXPacket *pkt)
-{
-  if(!m_pFormatContext || !pkt)
-    return AVMEDIA_TYPE_UNKNOWN;
-
-  return m_pFormatContext->streams[pkt->stream_index]->codec->codec_type;
-}
-
 OMXPacket *OMXReader::Read()
 {
   AVPacket  pkt;
@@ -751,8 +743,7 @@ bool OMXReader::GetStreams(bool dump_format)
   int i = 0;
   for(i = 0; i < MAX_OMX_CHAPTERS; i++)
   {
-    m_chapters[i].name      = "";
-    m_chapters[i].seconds = 0;
+    m_chapters[i] = 0;
   }
 
   m_chapter_count = 0;
@@ -761,13 +752,10 @@ bool OMXReader::GetStreams(bool dump_format)
   {
     m_chapter_count = (m_DvdPlayer->TotalChapters() > MAX_OMX_CHAPTERS) ? MAX_OMX_CHAPTERS : m_DvdPlayer->TotalChapters();
     for(i = 0; i < m_chapter_count; i++)
-    {
-      m_chapters[i].seconds   = m_DvdPlayer->GetChapterStartTime(i);
-    }
+      m_chapters[i]   = m_DvdPlayer->GetChapterStartTime(i);
   }
   else if(m_video_index != -1)
   {
-    //m_current_chapter = 0;
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
     m_chapter_count = (m_pFormatContext->nb_chapters > MAX_OMX_CHAPTERS) ? MAX_OMX_CHAPTERS : m_pFormatContext->nb_chapters;
     for(i = 0; i < m_chapter_count; i++)
@@ -776,17 +764,9 @@ bool OMXReader::GetStreams(bool dump_format)
       if(!chapter)
         continue;
 
-      m_chapters[i].seconds = ConvertTimestampSeconds(chapter->start, chapter->time_base.den, chapter->time_base.num);
+      m_chapters[i] = ConvertTimestampSeconds(chapter->start, chapter->time_base.den, chapter->time_base.num);
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,83,0)
-      AVDictionaryEntry *titleTag = m_dllAvUtil.av_dict_get(m_pFormatContext->chapters[i]->metadata,"title", NULL, 0);
-      if (titleTag)
-        m_chapters[i].name = titleTag->value;
-#else
-      if(m_pFormatContext->chapters[i]->title)
-        m_chapters[i].name = m_pFormatContext->chapters[i]->title;
-#endif
-      if(dump_format) printf("Chapter : \t%d \t%s \t%8.2f\n", i, m_chapters[i].name.c_str(), m_chapters[i].seconds);
+      if(dump_format) printf("Chapter : \t%d \t%8.2f\n", i, m_chapters[i]);
     }
   }
 #endif
@@ -1138,7 +1118,7 @@ bool OMXReader::SeekChapter(int chapter, double* startpts)
   if(m_chapter_count < 1)
     return false;
 
-  return SeekTime(m_chapters[chapter].seconds, 0, startpts);
+  return SeekTime(m_chapters[chapter], 0, startpts);
 #else
   return false;
 #endif
@@ -1175,43 +1155,19 @@ double OMXReader::ConvertTimestampSeconds(int64_t pts, int den, int num)
 
 int OMXReader::GetChapter()
 {
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
   if(m_chapter_count < 1 || m_iCurrentPts == DVD_NOPTS_VALUE)
     return -1;
 
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
   int i;
   double cur_pos = m_iCurrentPts / 1000000;
   for(i = 0; i < m_chapter_count-1; i++)
-  {
-    if(cur_pos >=   m_chapters[i].seconds
-      && cur_pos <  m_chapters[i+1].seconds)
+    if(cur_pos >=   m_chapters[i] && cur_pos <  m_chapters[i+1])
       return i;
-  }
+
   return i;
 #else
   return -1;
-#endif
-}
-
-void OMXReader::GetChapterName(std::string& strChapterName)
-{
-  strChapterName = "";
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
-  int chapterIdx = GetChapter();
-  if(chapterIdx <= 0)
-    return;
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,83,0)
-  // API added on: 2010-10-15
-  // (Note that while the function was available earlier, the generic
-  // metadata tags were not populated by default)
-  AVDictionaryEntry *titleTag = m_dllAvUtil.av_dict_get(m_pFormatContext->chapters[chapterIdx-1]->metadata,
-                                                              "title", NULL, 0);
-  if (titleTag)
-    strChapterName = titleTag->value;
-#else
-  if (m_pFormatContext->chapters[chapterIdx-1]->title)
-    strChapterName = m_pFormatContext->chapters[chapterIdx-1]->title;
-#endif
 #endif
 }
 
