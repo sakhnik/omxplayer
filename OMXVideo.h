@@ -101,7 +101,7 @@ public:
   void Close(void);
   unsigned int GetFreeSpace();
   unsigned int GetSize();
-  int  Decode(uint8_t *pData, int iSize, double dts, double pts);
+  int  Decode(uint8_t *pData, int iSize, int64_t dts, int64_t pts);
   void Reset(void);
   void SetDropState(bool bDrop);
   std::string GetDecoderName() { return m_video_codec_name; };

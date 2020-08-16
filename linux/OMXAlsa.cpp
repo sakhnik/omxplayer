@@ -160,7 +160,7 @@ typedef struct _GOMX_COMPONENT {
 
 static GOMX_PORT *gomx_get_port(GOMX_COMPONENT *comp, size_t idx)
 {
-	if (idx < 0 || idx >= comp->nports) return 0;
+	if (idx >= comp->nports) return 0;
 	return &comp->ports[idx];
 }
 

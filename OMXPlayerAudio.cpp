@@ -104,7 +104,7 @@ bool OMXPlayerAudio::Open(OMXClock *av_clock, const OMXAudioConfig &config, OMXR
   m_omx_reader  = omx_reader;
   m_passthrough = false;
   m_hw_decode   = false;
-  m_iCurrentPts = DVD_NOPTS_VALUE;
+  m_iCurrentPts = AV_NOPTS_VALUE;
   m_bAbort      = false;
   m_flush       = false;
   m_flush_requested = false;
@@ -153,7 +153,7 @@ bool OMXPlayerAudio::Close()
 
   m_open          = false;
   m_stream_id     = -1;
-  m_iCurrentPts   = DVD_NOPTS_VALUE;
+  m_iCurrentPts   = AV_NOPTS_VALUE;
   m_pStream       = NULL;
 
   m_dllAvUtil.Unload();
@@ -214,11 +214,11 @@ bool OMXPlayerAudio::Decode(OMXPacket *pkt)
       return false;
   }
 
-  CLog::Log(LOGINFO, "CDVDPlayerAudio::Decode dts:%.0f pts:%.0f size:%d", pkt->dts, pkt->pts, pkt->size);
+  CLog::Log(LOGINFO, "CDVDPlayerAudio::Decode dts:%lld pts:%lld size:%d", pkt->dts, pkt->pts, pkt->size);
 
-  if(pkt->pts != DVD_NOPTS_VALUE)
+  if(pkt->pts != AV_NOPTS_VALUE)
     m_iCurrentPts = pkt->pts;
-  else if(pkt->dts != DVD_NOPTS_VALUE)
+  else if(pkt->dts != AV_NOPTS_VALUE)
     m_iCurrentPts = pkt->dts;
 
   const uint8_t *data_dec = pkt->data;
@@ -226,7 +226,7 @@ bool OMXPlayerAudio::Decode(OMXPacket *pkt)
 
   if(!m_passthrough && !m_hw_decode)
   {
-    double dts = pkt->dts, pts=pkt->pts;
+    int64_t dts = pkt->dts, pts=pkt->pts;
     while(data_len > 0)
     {
       int len = m_pAudioCodec->Decode((BYTE *)data_dec, data_len, dts, pts);
@@ -292,7 +292,7 @@ void OMXPlayerAudio::Process()
 
     if(m_flush && omx_pkt)
     {
-      OMXReader::FreePacket(omx_pkt);
+      delete omx_pkt;
       omx_pkt = NULL;
       m_flush = false;
     }
@@ -315,20 +315,20 @@ void OMXPlayerAudio::Process()
     LockDecoder();
     if(m_flush && omx_pkt)
     {
-      OMXReader::FreePacket(omx_pkt);
+      delete omx_pkt;
       omx_pkt = NULL;
       m_flush = false;
     }
     else if(omx_pkt && Decode(omx_pkt))
     {
-      OMXReader::FreePacket(omx_pkt);
+      delete omx_pkt;
       omx_pkt = NULL;
     }
     UnLockDecoder();
   }
 
   if(omx_pkt)
-    OMXReader::FreePacket(omx_pkt);
+    delete omx_pkt;
 }
 
 void OMXPlayerAudio::Flush()
@@ -344,9 +344,9 @@ void OMXPlayerAudio::Flush()
   {
     OMXPacket *pkt = m_packets.front(); 
     m_packets.pop_front();
-    OMXReader::FreePacket(pkt);
+    delete pkt;
   }
-  m_iCurrentPts = DVD_NOPTS_VALUE;
+  m_iCurrentPts = AV_NOPTS_VALUE;
   m_cached_size = 0;
   if(m_decoder)
     m_decoder->Flush();

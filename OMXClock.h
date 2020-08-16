@@ -26,11 +26,7 @@
 
 #include "OMXCore.h"
 
-#define DVD_TIME_BASE 1000000
-#define DVD_NOPTS_VALUE    (-1LL<<52) // should be possible to represent in both double and __int64
-
-#define DVD_SEC_TO_MILLISEC(x) ((int)((double)(x) / 1000))
-#define DVD_SEC_TO_MICROSEC(x) ((double)(x)       * 1000000)
+#define DVD_SEC_TO_MICROSEC(x) ((x)       * 1000000)
 #define DVD_MILLISEC_TO_SEC(x) ((double)(x)       * 1000)
 
 #define DVD_PLAYSPEED_PAUSE       0       // frame stepping
@@ -65,8 +61,8 @@ protected:
   OMX_TIME_REFCLOCKTYPE m_eClock;
 private:
   COMXCoreComponent m_omx_clock;
-  double            m_last_media_time;
-  double            m_last_media_time_read;
+  int64_t            m_last_media_time;
+  int64_t            m_last_media_time_read;
   DllAvFormat       m_dllAvFormat;
 
 public:
@@ -82,9 +78,9 @@ public:
   bool OMXStop(bool lock = true);
   bool OMXStep(int steps = 1, bool lock = true);
   bool OMXReset(bool has_video, bool has_audio, bool lock = true);
-  double OMXMediaTime(bool lock = true);
-  double OMXClockAdjustment(bool lock = true);
-  bool OMXMediaTime(double pts, bool lock = true);
+  int64_t OMXMediaTime(bool lock = true);
+  int64_t OMXClockAdjustment(bool lock = true);
+  bool OMXMediaTime(int64_t pts, bool lock = true);
   bool OMXPause(bool lock = true);
   bool OMXResume(bool lock = true);
   bool OMXSetSpeed(int speed, bool lock = true, bool pause_resume = false);

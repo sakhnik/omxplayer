@@ -53,7 +53,7 @@ protected:
   DllAvFormat               m_dllAvFormat;
   bool                      m_open;
   COMXStreamInfo            m_hints;
-  double                    m_iCurrentPts;
+  int64_t                   m_iCurrentPts;
   pthread_cond_t            m_packet_cond;
   pthread_cond_t            m_audio_cond;
   pthread_mutex_t           m_lock;
@@ -99,7 +99,7 @@ public:
   double GetDelay();
   double GetCacheTime();
   double GetCacheTotal();
-  double GetCurrentPTS() { return m_iCurrentPts; };
+  int64_t GetCurrentPTS() { return m_iCurrentPts; };
   void SubmitEOS();
   void SubmitEOSInternal();
   bool IsEOS();

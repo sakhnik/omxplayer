@@ -477,7 +477,7 @@ bool OMXPlayerSubtitles::AddPacket(OMXPacket *pkt, size_t stream_index) BOOST_NO
 
   SCOPE_EXIT
   {
-    OMXReader::FreePacket(pkt);
+    delete pkt;
   };
 
   if(pkt->hints.codec != AV_CODEC_ID_SUBRIP && 

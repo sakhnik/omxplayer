@@ -158,7 +158,7 @@ void COMXAudioCodecOMX::Dispose()
   m_bGotFrame = false;
 }
 
-int COMXAudioCodecOMX::Decode(BYTE* pData, int iSize, double dts, double pts)
+int COMXAudioCodecOMX::Decode(BYTE* pData, int iSize, int64_t dts, int64_t pts)
 {
   int iBytesUsed, got_frame;
   if (!m_pCodecContext) return -1;
@@ -202,7 +202,7 @@ int COMXAudioCodecOMX::Decode(BYTE* pData, int iSize, double dts, double pts)
   return iBytesUsed;
 }
 
-int COMXAudioCodecOMX::GetData(BYTE** dst, double &dts, double &pts)
+int COMXAudioCodecOMX::GetData(BYTE** dst, int64_t &dts, int64_t &pts)
 {
   if (!m_bGotFrame)
     return 0;

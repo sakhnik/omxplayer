@@ -719,7 +719,7 @@ unsigned int COMXVideo::GetSize()
   return m_omx_decoder.GetInputBufferSize();
 }
 
-int COMXVideo::Decode(uint8_t *pData, int iSize, double dts, double pts)
+int COMXVideo::Decode(uint8_t *pData, int iSize, int64_t dts, int64_t pts)
 {
   CSingleLock lock (m_critSection);
   OMX_ERRORTYPE omx_err;
@@ -737,12 +737,12 @@ int COMXVideo::Decode(uint8_t *pData, int iSize, double dts, double pts)
     if(m_setStartTime)
     {
       nFlags |= OMX_BUFFERFLAG_STARTTIME;
-      CLog::Log(LOGDEBUG, "OMXVideo::Decode VDec : setStartTime %f\n", (pts == DVD_NOPTS_VALUE ? 0.0 : pts) / DVD_TIME_BASE);
+      CLog::Log(LOGDEBUG, "OMXVideo::Decode VDec : setStartTime %f\n", (pts == AV_NOPTS_VALUE ? 0.0 : (double)pts) / AV_TIME_BASE);
       m_setStartTime = false;
     }
-    if (pts == DVD_NOPTS_VALUE && dts == DVD_NOPTS_VALUE)
+    if (pts == AV_NOPTS_VALUE && dts == AV_NOPTS_VALUE)
       nFlags |= OMX_BUFFERFLAG_TIME_UNKNOWN;
-    else if (pts == DVD_NOPTS_VALUE)
+    else if (pts == AV_NOPTS_VALUE)
       nFlags |= OMX_BUFFERFLAG_TIME_IS_DTS;
 
     while(demuxer_bytes)
@@ -758,7 +758,7 @@ int COMXVideo::Decode(uint8_t *pData, int iSize, double dts, double pts)
 
       omx_buffer->nFlags = nFlags;
       omx_buffer->nOffset = 0;
-      omx_buffer->nTimeStamp = ToOMXTime((uint64_t)(pts != DVD_NOPTS_VALUE ? pts : dts != DVD_NOPTS_VALUE ? dts : 0));
+      omx_buffer->nTimeStamp = ToOMXTime((uint64_t)(pts != AV_NOPTS_VALUE ? pts : dts != AV_NOPTS_VALUE ? dts : 0));
       omx_buffer->nFilledLen = std::min((OMX_U32)demuxer_bytes, omx_buffer->nAllocLen);
       memcpy(omx_buffer->pBuffer, demuxer_content, omx_buffer->nFilledLen);
 

@@ -85,14 +85,14 @@ public:
   float GetCacheTime();
   float GetCacheTotal();
   unsigned int GetAudioRenderingLatency();
-  float GetMaxLevel(double &pts);
+  float GetMaxLevel(int64_t &pts);
   COMXAudio();
   bool Initialize(OMXClock *clock, const OMXAudioConfig &config, uint64_t channelMap, unsigned int uiBitsPerSample);
   ~COMXAudio();
   bool PortSettingsChanged();
 
   unsigned int AddPackets(const void* data, unsigned int len);
-  unsigned int AddPackets(const void* data, unsigned int len, double dts, double pts, unsigned int frame_size);
+  unsigned int AddPackets(const void* data, unsigned int len, int64_t dts, int64_t pts, unsigned int frame_size);
   unsigned int GetSpace();
   bool Deinitialize();
 
@@ -143,7 +143,7 @@ private:
   bool          m_settings_changed;
   bool          m_setStartTime;
   OMX_AUDIO_CODINGTYPE m_eEncoding;
-  double        m_last_pts;
+  int64_t      m_last_pts;
   bool          m_submitted_eos;
   bool          m_failed_eos;
   OMXAudioConfig m_config;
@@ -155,7 +155,7 @@ private:
   OMX_AUDIO_PARAM_DTSTYPE     m_dtsParam;
   WAVEFORMATEXTENSIBLE        m_wave_header;
   typedef struct {
-    double pts;
+    int64_t pts;
     float level;
   } amplitudes_t;
   std::deque<amplitudes_t> m_ampqueue;

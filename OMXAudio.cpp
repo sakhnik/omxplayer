@@ -68,7 +68,7 @@ COMXAudio::COMXAudio() :
   m_settings_changed(false  ),
   m_setStartTime    (false  ),
   m_eEncoding       (OMX_AUDIO_CodingPCM),
-  m_last_pts        (DVD_NOPTS_VALUE),
+  m_last_pts        (AV_NOPTS_VALUE),
   m_submitted_eos   (false  ),
   m_failed_eos      (false  )
 {
@@ -649,7 +649,7 @@ bool COMXAudio::Initialize(OMXClock *clock, const OMXAudioConfig &config, uint64
   m_setStartTime  = true;
   m_submitted_eos = false;
   m_failed_eos = false;
-  m_last_pts      = DVD_NOPTS_VALUE;
+  m_last_pts      = AV_NOPTS_VALUE;
   m_submitted     = 0.0f;
   m_maxLevel      = 0.0f;
 
@@ -716,7 +716,7 @@ bool COMXAudio::Deinitialize()
   while(!m_ampqueue.empty())
     m_ampqueue.pop_front();
 
-  m_last_pts      = DVD_NOPTS_VALUE;
+  m_last_pts      = AV_NOPTS_VALUE;
   m_submitted     = 0.0f;
   m_maxLevel      = 0.0f;
 
@@ -748,7 +748,7 @@ void COMXAudio::Flush()
   if( m_omx_render_hdmi.IsInitialized() )
     m_omx_render_hdmi.ResetEos();
 
-  m_last_pts      = DVD_NOPTS_VALUE;
+  m_last_pts      = AV_NOPTS_VALUE;
   m_submitted     = 0.0f;
   m_maxLevel      = 0.0f;
   m_setStartTime  = true;
@@ -846,7 +846,7 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len)
 }
 
 //***********************************************************************************************
-unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, double dts, double pts, unsigned int frame_size)
+unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, int64_t dts, int64_t pts, unsigned int frame_size)
 {
   CSingleLock lock (m_critSection);
 
@@ -922,7 +922,7 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, double dt
        memcpy(dst, src, omx_buffer->nFilledLen);
     }
 
-    uint64_t val  = (uint64_t)(pts == DVD_NOPTS_VALUE) ? 0 : pts;
+    int64_t val = pts == AV_NOPTS_VALUE ? 0 : pts;
 
     if(m_setStartTime)
     {
@@ -930,12 +930,12 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, double dt
 
       m_last_pts = pts;
 
-      CLog::Log(LOGDEBUG, "COMXAudio::Decode ADec : setStartTime %f\n", (float)val / DVD_TIME_BASE);
+      CLog::Log(LOGDEBUG, "COMXAudio::Decode ADec : setStartTime %f\n", (float)val / AV_TIME_BASE);
       m_setStartTime = false;
     }
     else
     {
-      if(pts == DVD_NOPTS_VALUE)
+      if(pts == AV_NOPTS_VALUE)
       {
         omx_buffer->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
         m_last_pts = pts;
@@ -992,22 +992,22 @@ void COMXAudio::UpdateAttenuation()
     return;
   }
 
-  double level_pts = 0.0;
+  int64_t level_pts = 0;
   float level = GetMaxLevel(level_pts);
-  if (level_pts != 0.0)
+  if (level_pts != 0)
   {
     amplitudes_t v;
     v.level = level;
     v.pts = level_pts;
     m_ampqueue.push_back(v);
   }
-  double stamp = m_av_clock->OMXMediaTime();
+  int64_t stamp = m_av_clock->OMXMediaTime();
   // discard too old data
   while(!m_ampqueue.empty())
   {
     amplitudes_t &v = m_ampqueue.front();
     /* we'll also consume if queue gets unexpectedly long to avoid filling memory */
-    if (v.pts == DVD_NOPTS_VALUE || v.pts < stamp || v.pts - stamp > DVD_SEC_TO_MICROSEC(15.0))
+    if (v.pts == AV_NOPTS_VALUE || v.pts < stamp || v.pts - stamp > DVD_SEC_TO_MICROSEC(15.0))
       m_ampqueue.pop_front();
     else break;
   }
@@ -1017,7 +1017,7 @@ void COMXAudio::UpdateAttenuation()
     amplitudes_t &v = m_ampqueue[i];
     maxlevel = std::max(maxlevel, v.level);
     // check for maximum volume in next 200ms
-    if (v.pts != DVD_NOPTS_VALUE && v.pts < stamp + DVD_SEC_TO_MICROSEC(0.2))
+    if (v.pts != AV_NOPTS_VALUE && v.pts < stamp + DVD_SEC_TO_MICROSEC(0.2))
       imminent_maxlevel = std::max(imminent_maxlevel, v.level);
   }
 
@@ -1064,14 +1064,14 @@ unsigned int COMXAudio::GetSpace()
 float COMXAudio::GetDelay()
 {
   CSingleLock lock (m_critSection);
-  double stamp = DVD_NOPTS_VALUE;
+  int64_t stamp = AV_NOPTS_VALUE;
   double ret = 0.0;
-  if (m_last_pts != DVD_NOPTS_VALUE && m_av_clock)
+  if (m_last_pts != AV_NOPTS_VALUE && m_av_clock)
     stamp = m_av_clock->OMXMediaTime();
   // if possible the delay is current media time - time of last submitted packet
-  if (stamp != DVD_NOPTS_VALUE)
+  if (stamp != AV_NOPTS_VALUE)
   {
-    ret = (m_last_pts - stamp) * (1.0 / DVD_TIME_BASE);
+    ret = (m_last_pts - stamp) * (1.0 / AV_TIME_BASE);
     //CLog::Log(LOGINFO, "%s::%s - %.2f %.0f %.0f", CLASSNAME, __func__, ret, stamp, m_last_pts);
   }
   else // just measure the input fifo
@@ -1140,7 +1140,7 @@ unsigned int COMXAudio::GetAudioRenderingLatency()
   return param.nU32;
 }
 
-float COMXAudio::GetMaxLevel(double &pts)
+float COMXAudio::GetMaxLevel(int64_t &pts)
 {
   CSingleLock lock (m_critSection);
 

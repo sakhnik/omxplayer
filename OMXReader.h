@@ -53,18 +53,15 @@ using namespace std;
 
 class OMXReader;
 
-typedef struct OMXPacket
+class OMXPacket : public AVPacket
 {
-  double    pts               = 0.0f; // pts in DVD_TIME_BASE
-  double    dts               = 0.0f; // dts in DVD_TIME_BASE
-  double    now               = 0.0f; // dts in DVD_TIME_BASE
-  double    duration          = 0.0f; // duration in DVD_TIME_BASE if available
-  int       size              = 0;
-  uint8_t   *data             = NULL;
-  int       stream_index      = 0;
+  public: 
+  OMXPacket();
+  ~OMXPacket();
+  
   COMXStreamInfo hints;
-  enum AVMediaType codec_type = AVMEDIA_TYPE_UNKNOWN;
-} OMXPacket;
+  enum AVMediaType codec_type;
+};
 
 enum OMXStreamType
 {
@@ -111,7 +108,7 @@ protected:
   double                    m_chapters[MAX_OMX_CHAPTERS];
   OMXStream                 m_streams[MAX_STREAMS];
   int                       m_chapter_count;
-  double                    m_iCurrentPts;
+  int64_t                   m_iCurrentPts;
   int                       m_speed;
   unsigned int              m_program;
   pthread_mutex_t           m_lock;
@@ -134,7 +131,7 @@ public:
   void ClearStreams();
   bool Close();
   //void FlushRead();
-  bool SeekTime(double time, bool backwords, double *startpts);
+  bool SeekTime(double time, bool backwords, int64_t *startpts);
   OMXPacket *Read();
   bool GetStreams(bool dump_format = false);
   void AddStream(int id);
@@ -153,14 +150,12 @@ public:
   double GetAspectRatio() { return m_aspect; };
   int GetWidth() { return m_width; };
   int GetHeight() { return m_height; };
-  static void FreePacket(OMXPacket *pkt);
-  static OMXPacket *AllocPacket(int size);
+  OMXPacket *AllocPacket();
   void SetSpeed(int iSpeed);
   void UpdateCurrentPTS();
-  double ConvertTimestamp(int64_t pts, int den, int num);
-  double ConvertTimestampSeconds(int64_t pts, int den, int num);
+  int64_t ConvertTimestamp(int64_t pts, int den, int num);
   int GetChapter();
-  bool SeekChapter(int chapter, double* startpts);
+  bool SeekChapter(int chapter, int64_t* startpts);
   int GetAudioIndex() { return (m_audio_index >= 0) ? m_streams[m_audio_index].index : -1; };
   int GetSubtitleIndex() { return (m_subtitle_index >= 0) ? m_streams[m_subtitle_index].index : -1; };
   int GetVideoIndex() { return (m_video_index >= 0) ? m_streams[m_video_index].index : -1; };

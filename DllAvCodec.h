@@ -97,7 +97,7 @@ public:
     const uint8_t *buf, int buf_size, int keyframe) =0;
   virtual void av_bitstream_filter_close(AVBitStreamFilterContext *bsfc) =0;
   virtual void avpicture_free(AVPicture *picture)=0;
-  virtual void av_free_packet(AVPacket *pkt)=0;
+  virtual void av_packet_unref(AVPacket *pkt)=0;
   virtual int avpicture_alloc(AVPicture *picture, AVPixelFormat pix_fmt, int width, int height)=0;
   virtual enum AVPixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum AVPixelFormat *fmt)=0;
   virtual int avcodec_default_get_buffer2(AVCodecContext *s, AVFrame *pic, int flags)=0;
@@ -158,7 +158,7 @@ public:
   virtual void av_bitstream_filter_close(AVBitStreamFilterContext *bsfc) { ::av_bitstream_filter_close(bsfc); }
 
   virtual void avpicture_free(AVPicture *picture) { ::avpicture_free(picture); }
-  virtual void av_free_packet(AVPacket *pkt) { ::av_free_packet(pkt); }
+  virtual void av_packet_unref(AVPacket *pkt) { ::av_packet_unref(pkt); }
   virtual int avpicture_alloc(AVPicture *picture, AVPixelFormat pix_fmt, int width, int height) { return ::avpicture_alloc(picture, pix_fmt, width, height); }
   virtual int avcodec_default_get_buffer2(AVCodecContext *s, AVFrame *pic, int flags) { return ::avcodec_default_get_buffer2(s, pic, flags); }
   virtual enum AVPixelFormat avcodec_default_get_format(struct AVCodecContext *s, const enum AVPixelFormat *fmt) { return ::avcodec_default_get_format(s, fmt); }
@@ -207,7 +207,7 @@ class DllAvCodec : public DllDynamic, DllAvCodecInterface
   DEFINE_METHOD1(AVBitStreamFilterContext*, av_bitstream_filter_init, (const char *p1))
   DEFINE_METHOD8(int, av_bitstream_filter_filter, (AVBitStreamFilterContext* p1, AVCodecContext* p2, const char* p3, uint8_t** p4, int* p5, const uint8_t* p6, int p7, int p8))
   DEFINE_METHOD1(void, av_bitstream_filter_close, (AVBitStreamFilterContext *p1))
-  DEFINE_METHOD1(void, av_free_packet, (AVPacket *p1))
+  DEFINE_METHOD1(void, av_packet_unref, (AVPacket *p1))
   DEFINE_METHOD4(int, avpicture_alloc, (AVPicture *p1, AVPixelFormat p2, int p3, int p4))
   DEFINE_METHOD2(int, avcodec_default_get_buffer2, (AVCodecContext *p1, AVFrame *p2, int flags))
   DEFINE_METHOD2(enum AVPixelFormat, avcodec_default_get_format, (struct AVCodecContext *p1, const enum AVPixelFormat *p2))
@@ -238,7 +238,7 @@ class DllAvCodec : public DllDynamic, DllAvCodecInterface
     RESOLVE_METHOD(av_bitstream_filter_close)
     RESOLVE_METHOD(avpicture_free)
     RESOLVE_METHOD(avpicture_alloc)
-    RESOLVE_METHOD(av_free_packet)
+    RESOLVE_METHOD(av_packet_unref)
     RESOLVE_METHOD(avcodec_default_get_buffer2)
     RESOLVE_METHOD(avcodec_default_get_format)
     RESOLVE_METHOD(av_codec_next)

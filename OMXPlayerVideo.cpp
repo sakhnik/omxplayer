@@ -101,7 +101,7 @@ bool OMXPlayerVideo::Open(OMXClock *av_clock, const OMXVideoConfig &config)
   m_av_clock    = av_clock;
   m_fps         = 25.0f;
   m_frametime   = 0;
-  m_iCurrentPts = DVD_NOPTS_VALUE;
+  m_iCurrentPts = AV_NOPTS_VALUE;
   m_bAbort      = false;
   m_flush       = false;
   m_cached_size = 0;
@@ -130,7 +130,7 @@ bool OMXPlayerVideo::Reset()
   Flush();   
   m_stream_id         = -1;
   m_pStream           = NULL;
-  m_iCurrentPts       = DVD_NOPTS_VALUE;
+  m_iCurrentPts       = AV_NOPTS_VALUE;
   m_frametime         = 0;
   m_bAbort            = false;
   m_flush             = false;
@@ -168,7 +168,7 @@ bool OMXPlayerVideo::Close()
 
   m_open          = false;
   m_stream_id     = -1;
-  m_iCurrentPts   = DVD_NOPTS_VALUE;
+  m_iCurrentPts   = AV_NOPTS_VALUE;
   m_pStream       = NULL;
 
   return true;
@@ -199,16 +199,16 @@ bool OMXPlayerVideo::Decode(OMXPacket *pkt)
   if(!pkt)
     return false;
 
-  double dts = pkt->dts;
-  double pts = pkt->pts;
+  int64_t dts = pkt->dts;
+  int64_t pts = pkt->pts;
 
-  if (dts != DVD_NOPTS_VALUE)
+  if (dts != AV_NOPTS_VALUE)
     dts += m_iVideoDelay;
 
-  if (pts != DVD_NOPTS_VALUE)
+  if (pts != AV_NOPTS_VALUE)
     pts += m_iVideoDelay;
 
-  if(pts != DVD_NOPTS_VALUE)
+  if(pts != AV_NOPTS_VALUE)
     m_iCurrentPts = pts;
 
   while((int) m_decoder->GetFreeSpace() < pkt->size)
@@ -217,7 +217,7 @@ bool OMXPlayerVideo::Decode(OMXPacket *pkt)
     if(m_flush_requested) return true;
   }
 
-  CLog::Log(LOGINFO, "CDVDPlayerVideo::Decode dts:%.0f pts:%.0f cur:%.0f, size:%d", pkt->dts, pkt->pts, m_iCurrentPts, pkt->size);
+  CLog::Log(LOGINFO, "CDVDPlayerVideo::Decode dts:%lld pts:%lld cur:%lld, size:%d", pkt->dts, pkt->pts, m_iCurrentPts, pkt->size);
   m_decoder->Decode(pkt->data, pkt->size, dts, pts);
   return true;
 }
@@ -240,7 +240,7 @@ void OMXPlayerVideo::Process()
 
     if(m_flush && omx_pkt)
     {
-      OMXReader::FreePacket(omx_pkt);
+      delete omx_pkt;
       omx_pkt = NULL;
       m_flush = false;
     }
@@ -263,20 +263,20 @@ void OMXPlayerVideo::Process()
     LockDecoder();
     if(m_flush && omx_pkt)
     {
-      OMXReader::FreePacket(omx_pkt);
+      delete omx_pkt;
       omx_pkt = NULL;
       m_flush = false;
     }
     else if(omx_pkt && Decode(omx_pkt))
     {
-      OMXReader::FreePacket(omx_pkt);
+      delete omx_pkt;
       omx_pkt = NULL;
     }
     UnLockDecoder();
   }
 
   if(omx_pkt)
-    OMXReader::FreePacket(omx_pkt);
+    delete omx_pkt;
 }
 
 void OMXPlayerVideo::Flush()
@@ -290,9 +290,9 @@ void OMXPlayerVideo::Flush()
   {
     OMXPacket *pkt = m_packets.front(); 
     m_packets.pop_front();
-    OMXReader::FreePacket(pkt);
+    delete pkt;
   }
-  m_iCurrentPts = DVD_NOPTS_VALUE;
+  m_iCurrentPts = AV_NOPTS_VALUE;
   m_cached_size = 0;
   if(m_decoder)
     m_decoder->Reset();
@@ -327,7 +327,7 @@ bool OMXPlayerVideo::AddPacket(OMXPacket *pkt)
 bool OMXPlayerVideo::OpenDecoder()
 {
   if (m_config.hints.fpsrate && m_config.hints.fpsscale)
-    m_fps = DVD_TIME_BASE / OMXReader::NormalizeFrameduration((double)DVD_TIME_BASE * m_config.hints.fpsscale / m_config.hints.fpsrate);
+    m_fps = AV_TIME_BASE / OMXReader::NormalizeFrameduration((double)AV_TIME_BASE * m_config.hints.fpsscale / m_config.hints.fpsrate);
   else
     m_fps = 25;
 
@@ -337,7 +337,7 @@ bool OMXPlayerVideo::OpenDecoder()
     m_fps = 25;
   }
 
-  m_frametime = (double)DVD_TIME_BASE / m_fps;
+  m_frametime = (double)AV_TIME_BASE / m_fps;
 
   m_decoder = new COMXVideo();
   if(!m_decoder->Open(m_av_clock, m_config))

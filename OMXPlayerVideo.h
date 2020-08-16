@@ -50,7 +50,7 @@ protected:
   DllAvCodec                m_dllAvCodec;
   DllAvFormat               m_dllAvFormat;
   bool                      m_open;
-  double                    m_iCurrentPts;
+  int64_t                   m_iCurrentPts;
   pthread_cond_t            m_packet_cond;
   pthread_cond_t            m_picture_cond;
   pthread_mutex_t           m_lock;
@@ -86,7 +86,7 @@ public:
   bool CloseDecoder();
   int  GetDecoderBufferSize();
   int  GetDecoderFreeSpace();
-  double GetCurrentPTS() { return m_iCurrentPts; };
+  int64_t GetCurrentPTS() { return m_iCurrentPts; };
   double GetFPS() { return m_fps; };
   unsigned int GetCached() { return m_cached_size; };
   unsigned int GetMaxCached() { return m_config.queue_size * 1024 * 1024; };

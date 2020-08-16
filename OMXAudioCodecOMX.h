@@ -37,8 +37,8 @@ public:
   ~COMXAudioCodecOMX();
   bool Open(COMXStreamInfo &hints, enum PCMLayout layout);
   void Dispose();
-  int Decode(BYTE* pData, int iSize, double dts, double pts);
-  int GetData(BYTE** dst, double &dts, double &pts);
+  int Decode(BYTE* pData, int iSize, int64_t dts, int64_t pts);
+  int GetData(BYTE** dst, int64_t &dts, int64_t &pts);
   void Reset();
   int GetChannels();
   uint64_t GetChannelMap();
@@ -68,7 +68,7 @@ protected:
   bool m_bGotFrame;
   bool m_bNoConcatenate;
   unsigned int  m_frameSize;
-  double m_dts, m_pts;
+  uint64_t m_dts, m_pts;
   DllAvCodec m_dllAvCodec;
   DllAvUtil m_dllAvUtil;
   DllSwResample m_dllSwResample;
