@@ -1324,7 +1324,7 @@ int main(int argc, char *argv[])
     if(g_abort)
       goto do_exit;
 
-    int64_t now = m_av_clock->GetAbsoluteClock();
+    int64_t now = OMXClock::GetAbsoluteClock();
     bool update = false;
     m_chapter_seek = false;
     if (m_last_check_time == 0 || m_last_check_time + 20000 <= now)
@@ -1754,8 +1754,7 @@ int main(int argc, char *argv[])
       pts = m_av_clock->OMXMediaTime();
       seek_pos = (double)(pts / AV_TIME_BASE);
 
-      if(m_omx_reader.SeekTime(seek_pos, m_av_clock->OMXPlaySpeed() < 0, &startpts))
-        ; //FlushStreams(AV_NOPTS_VALUE);
+      m_omx_reader.SeekTime(seek_pos, m_av_clock->OMXPlaySpeed() < 0, &startpts);
 
       CLog::Log(LOGDEBUG, "Seeked %.0f %lld %lld\n", seek_pos, startpts, m_av_clock->OMXMediaTime());
 

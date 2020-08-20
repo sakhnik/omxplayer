@@ -89,8 +89,8 @@ public:
   bool OMXStateExecute(bool lock = true);
   void OMXStateIdle(bool lock = true);
   bool HDMIClockSync(bool lock = true);
-  int64_t GetAbsoluteClock();
-  double GetClock(bool interpolated = true);
+  static int64_t CurrentHostCounter();
+  static int64_t GetAbsoluteClock();
   static void OMXSleep(unsigned int dwMilliSeconds);
 };
 

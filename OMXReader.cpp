@@ -43,15 +43,8 @@ static int64_t timeout_start;
 static int64_t timeout_default_duration;
 static int64_t timeout_duration;
 
-static int64_t CurrentHostCounter(void)
-{
-  struct timespec now;
-  clock_gettime(CLOCK_MONOTONIC, &now);
-  return( ((int64_t)now.tv_sec * 1000000000LL) + now.tv_nsec );
-}
-
 #define RESET_TIMEOUT(x) do { \
-  timeout_start = CurrentHostCounter(); \
+  timeout_start = OMXClock::CurrentHostCounter(); \
   timeout_duration = (x) * timeout_default_duration; \
 } while (0)
 
@@ -119,7 +112,7 @@ static int interrupt_cb(void *unused)
     CLog::Log(LOGERROR, "COMXPlayer::interrupt_cb - Told to abort");
     ret = 1;
   }
-  else if (timeout_duration && CurrentHostCounter() - timeout_start > timeout_duration)
+  else if (timeout_duration && OMXClock::CurrentHostCounter() - timeout_start > timeout_duration)
   {
     CLog::Log(LOGERROR, "COMXPlayer::interrupt_cb - Timed out");
     ret = 1;
@@ -997,20 +990,6 @@ bool OMXReader::GetHints(AVStream *stream, COMXStreamInfo *hints)
   }
 
   return true;
-}
-
-bool OMXReader::GetHints(OMXStreamType type, unsigned int index, COMXStreamInfo &hints)
-{
-  for(unsigned int i = 0; i < MAX_STREAMS; i++)
-  {
-    if(m_streams[i].type == type && m_streams[i].index == i)
-    {
-      hints = m_streams[i].hints;
-      return true;
-    }
-  }
-
-  return false;
 }
 
 bool OMXReader::GetHints(OMXStreamType type, COMXStreamInfo &hints)

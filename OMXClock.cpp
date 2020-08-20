@@ -323,7 +323,7 @@ int64_t OMXClock::OMXMediaTime(bool lock /* = true */)
     return 0;
 
   int64_t now = GetAbsoluteClock();
-  if (now - m_last_media_time_read > 100000 || m_last_media_time == 0.0)
+  if (now - m_last_media_time_read > 100000 || m_last_media_time == 0)
   {
     if(lock)
       Lock();
@@ -561,21 +561,16 @@ void OMXClock::OMXSleep(unsigned int dwMilliSeconds)
   while ( nanosleep(&req, &req) == -1 && errno == EINTR && (req.tv_nsec > 0 || req.tv_sec > 0));
 }
 
-static int64_t CurrentHostCounter(void)
+int64_t OMXClock::CurrentHostCounter()
 {
   struct timespec now;
   clock_gettime(CLOCK_MONOTONIC, &now);
-  return( ((int64_t)now.tv_sec * 1000000000L) + now.tv_nsec );
+  return( ((int64_t)now.tv_sec * 1000000000LL) + now.tv_nsec );
 }
 
 int64_t OMXClock::GetAbsoluteClock()
 {
   return CurrentHostCounter()/1000;
-}
-
-double OMXClock::GetClock(bool interpolated /*= true*/)
-{
-  return GetAbsoluteClock();
 }
 #endif
 

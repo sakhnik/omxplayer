@@ -142,19 +142,10 @@ void SubtitleRenderer::set_color(int new_color)
 		cairo_set_source(m_cr, m_ghost_box_transparency);
 	else if(new_color == 0)
 		cairo_set_source(m_cr, m_black_font_outline);
-	else
-	{
-		int x = new_color;
-
-		int red = x >> 16;
-		x -= (red << 16);
-
-		int green = x >> 8;
-		x -= (green << 8);
-
-		float r = red / 255.0f;
-		float g = green / 255.0f;
-		float b = x / 255.0f;
+	else {
+		float r = ((new_color >> 16) & 0xFF) / 255.0f;
+		float g = ((new_color >>  8) & 0xFF) / 255.0f;
+		float b = ((new_color >>  0) & 0xFF) / 255.0f;
 
 		cairo_set_source_rgba(m_cr, r, g, b, 1);
 	}
