@@ -1414,20 +1414,18 @@ int main(int argc, char *argv[])
         if(m_has_audio)
         {
           int new_index = m_omx_reader.GetAudioIndex() - 1;
-          if(new_index >= 0)
-          {
-            m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, new_index);
-            DISPLAY_TEXT_SHORT(
-              strprintf("Audio stream: %d", m_omx_reader.GetAudioIndex() + 1));
-          }
+          if(new_index < 0) new_index = m_omx_reader.AudioStreamCount() - 1;
+          DISPLAY_TEXT_SHORT(strprintf("Audio stream: %d", new_index + 1));
+          m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, new_index);
         }
         break;
       case KeyConfig::ACTION_NEXT_AUDIO:
         if(m_has_audio)
         {
-          m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, m_omx_reader.GetAudioIndex() + 1);
-          DISPLAY_TEXT_SHORT(
-            strprintf("Audio stream: %d", m_omx_reader.GetAudioIndex() + 1));
+          int new_index = m_omx_reader.GetAudioIndex() + 1;
+          if(new_index >= m_omx_reader.AudioStreamCount()) new_index = 0;
+          DISPLAY_TEXT_SHORT(strprintf("Audio stream: %d", new_index + 1));
+          m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, new_index);
         }
         break;
       case KeyConfig::ACTION_PREVIOUS_CHAPTER:
@@ -1513,8 +1511,9 @@ int main(int argc, char *argv[])
             }
             else
             {
-              auto new_index = m_player_subtitles.GetActiveStream()-1;
-              DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d", new_index+1));
+              int new_index = m_player_subtitles.GetActiveStream() - 1;
+              if(new_index < 0) new_index = m_omx_reader.SubtitleStreamCount() - 1;
+              DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d", new_index + 1));
               m_player_subtitles.SetActiveStream(new_index);
             }
           }
@@ -1537,12 +1536,10 @@ int main(int argc, char *argv[])
           }
           else
           {
-            auto new_index = m_player_subtitles.GetActiveStream()+1;
-            if(new_index < (size_t) m_omx_reader.SubtitleStreamCount())
-            {
-              DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d", new_index+1));
-              m_player_subtitles.SetActiveStream(new_index);
-            }
+            int new_index = m_player_subtitles.GetActiveStream() + 1;
+            if(new_index >= m_omx_reader.SubtitleStreamCount()) new_index = 0;
+            DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d", new_index + 1));
+            m_player_subtitles.SetActiveStream(new_index);
           }
 
           m_player_subtitles.SetVisible(true);
