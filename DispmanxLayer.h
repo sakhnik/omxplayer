@@ -28,13 +28,33 @@
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 //
 
-void openDisplay(int display_num, int &screen_width, int &screen_height);
+#include <bcm_host.h>
 
-void createImageLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int32_t width,
-	int32_t height);
+class DispmanxLayer
+{
+public:
+	DispmanxLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int pitch,
+		int32_t src_width, int32_t src_height,
+		int32_t dst_width = -1, int32_t dst_height = -1);
+	~DispmanxLayer();
 
-void setImageData(void *image_data);
+	void hideElement();
+	void setImageData(void *image_data);
 
-void hideElement();
+	static void openDisplay(int display_num, int &screen_width, int &screen_height);
+	static void closeDisplay();
 
-void removeImageLayer();
+private:
+	void changeImageLayer(int new_layer);
+	void showElement();
+
+	VC_RECT_T m_bmpRect;
+	int32_t m_layer;
+	int32_t m_image_pitch;
+	DISPMANX_RESOURCE_HANDLE_T m_resource;
+	DISPMANX_ELEMENT_HANDLE_T m_element;
+	DISPMANX_UPDATE_HANDLE_T m_update;
+
+	bool m_element_is_hidden = true;
+	static DISPMANX_DISPLAY_HANDLE_T m_display;
+};

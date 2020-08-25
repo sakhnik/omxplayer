@@ -48,7 +48,7 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 
 	// Determine screen size
 	int screen_width, screen_height;
-	openDisplay(display_num, screen_width, screen_height);
+	DispmanxLayer::openDisplay(display_num, screen_width, screen_height);
 
 	//Calculate font as thousands of screen height
 	m_font_size = screen_height * r_font_size;
@@ -59,32 +59,33 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	// And line_height combines the two
 	int line_height = m_font_size + m_padding;
 
-	// Alignment: a fairly unscientific survey showed that with a font size of 59px
-	// subtitles lines were rarely longer than 1300px.
-	int margin_left;
-	int assumed_longest_subtitle_line_in_pixels = m_font_size * 22.5;
-	m_screen_center = screen_width / 2;
-	if(m_centered)
-		margin_left = 0;
-	else if(screen_width > assumed_longest_subtitle_line_in_pixels)
-		margin_left = (int)(screen_width - assumed_longest_subtitle_line_in_pixels) / 2;
-	else if(screen_width > screen_height)
-		margin_left = (int)(screen_width - screen_height) / 2;
-	else
-		margin_left = 0;
-
 	// Calculate image height - must be evenly divisible by 16
 	m_image_height = (m_max_lines * line_height) + 5;
 	m_image_height = (m_image_height + 15) & ~15; // grow to fit
 
-	m_image_width = screen_width - margin_left - 100;
+	m_image_width = screen_width - 100;
 	m_image_width = m_image_width & ~15; // shrink to fit
+
+	// make sure image doesn't overshoot screen
+	int left_margin = 50;
 
 	// bottom margin (relative to top)
 	int top_margin = screen_height - m_image_height - (line_height / 2);
 
-	// Create image layer
-	createImageLayer(layer_num, margin_left, top_margin, m_image_width, m_image_height);
+	// A fairly unscientific survey showed that with a font size of 59px subtitles lines
+	// were rarely longer than 1300px. We also assume that marger font sizes (frequently used
+	// in East Asian scripts) would result in shorter not longer subtitles.
+	int assumed_longest_subtitle_line_in_pixels = 1300;
+	m_screen_center = screen_width / 2;
+	if(screen_width > assumed_longest_subtitle_line_in_pixels)
+		left_aligned_margin = (int)(screen_width - assumed_longest_subtitle_line_in_pixels) / 2;
+	else if(screen_width > screen_height)
+		left_aligned_margin = (int)(screen_width - screen_height) / 2;
+
+	if(left_aligned_margin > left_margin) left_aligned_margin -= left_margin;
+
+	// Create image layers
+	subtitleLayer = new DispmanxLayer(layer_num, left_margin, top_margin, 4, m_image_width, m_image_height);
 
 	// font faces
 	cairo_font_face_t *normal_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
@@ -183,7 +184,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 		int text_parts = parsed_lines[i].size();
 
 		// cursor x position
-		int cursor_x_position = 0;
+		int cursor_x_position = left_aligned_margin;
 
 		for(int j = 0; j < text_parts; j++) {
 			set_font(parsed_lines[i][j].font);
@@ -211,8 +212,8 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 				&extents);
 
 			cursor_x_position += extents.x_advance;
+			box_width += extents.x_advance;
 		}
-		box_width += cursor_x_position;
 
 		// aligned text
 		if(m_centered) {
@@ -225,7 +226,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 				}
 			}
 		} else {
-			cursor_x_position = 0;
+			cursor_x_position = left_aligned_margin;
 		}
 
 		// draw ghost box
@@ -264,14 +265,14 @@ void SubtitleRenderer::show_next()
 {
 	if(m_prepared) {
 		unsigned char *image_data = cairo_image_surface_get_data(m_surface);
-		setImageData(image_data);
+		subtitleLayer->setImageData(image_data);
 		unprepare();
 	}
 }
 
 void SubtitleRenderer::hide()
 {
-	hideElement();
+	subtitleLayer->hideElement();
 }
 
 void SubtitleRenderer::unprepare()
@@ -360,7 +361,8 @@ SubtitleRenderer::~SubtitleRenderer()
 	unprepare();
 
 	// remove DispmanX layer
-	removeImageLayer();
+	delete subtitleLayer;
+	DispmanxLayer::closeDisplay();
 
 	// destroy cairo fonts
 	cairo_scaled_font_destroy(m_normal_font_scaled);

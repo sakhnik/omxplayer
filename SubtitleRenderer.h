@@ -24,6 +24,7 @@
 #include <cairo.h>
 
 class CRegExp;
+class DispmanxLayer;
 using namespace std;
 
 class SubtitleRenderer {
@@ -44,6 +45,7 @@ class SubtitleRenderer {
 		void unprepare();
 
 	private:
+		DispmanxLayer *defaultSubLayer;
 
 		class SubtitleText
 		{
@@ -80,6 +82,8 @@ class SubtitleRenderer {
 
 		bool m_prepared = false;
 
+		DispmanxLayer *subtitleLayer;
+
 		// cairo stuff
 		cairo_surface_t *m_surface;
 		cairo_t *m_cr;
@@ -94,6 +98,7 @@ class SubtitleRenderer {
 		cairo_pattern_t *m_black_font_outline;
 
 		// positional elements
+		int left_aligned_margin;
 		bool m_centered;
 		int m_screen_center;
 		bool m_ghost_box;

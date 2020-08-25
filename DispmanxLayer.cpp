@@ -32,30 +32,16 @@
 
 #include "DispmanxLayer.h"
 
-typedef struct {
-	struct IMAGE_T {
-		int32_t width;
-		int32_t height;
-		int32_t pitch;
-		uint32_t size;
-	} image;
-	VC_RECT_T bmpRect;
-	VC_RECT_T srcRect;
-	VC_RECT_T dstRect;
-	int32_t layer;
-	DISPMANX_RESOURCE_HANDLE_T resource;
-	DISPMANX_ELEMENT_HANDLE_T element;
-} IMAGE_LAYER_T;
+#define ELEMENT_CHANGE_LAYER          (1<<0)
+#define ELEMENT_CHANGE_OPACITY        (1<<1)
+#define ELEMENT_CHANGE_DEST_RECT      (1<<2)
+#define ELEMENT_CHANGE_SRC_RECT       (1<<3)
+#define ELEMENT_CHANGE_MASK_RESOURCE  (1<<4)
+#define ELEMENT_CHANGE_TRANSFORM      (1<<5)
 
-static DISPMANX_DISPLAY_HANDLE_T m_display;
-static DISPMANX_UPDATE_HANDLE_T m_update;
-static IMAGE_LAYER_T image_layer;
+DISPMANX_DISPLAY_HANDLE_T DispmanxLayer::m_display;
 
-static bool element_is_hidden = false;
-
-#define ELEMENT_CHANGE_LAYER	(1<<0)
-
-void openDisplay(int display_num, int &screen_width, int &screen_height)
+void DispmanxLayer::openDisplay(int display_num, int &screen_width, int &screen_height)
 {
 	bcm_host_init();
 
@@ -72,63 +58,70 @@ void openDisplay(int display_num, int &screen_width, int &screen_height)
 	screen_height = screen_info.height;
 }
 
-void createImageLayer(int32_t layer, int32_t margin_left,
-	int32_t margin_top, int32_t width, int32_t height)
+void DispmanxLayer::closeDisplay()
 {
-	// Init image note dimensions should be divisible by 16
-	assert(width % 16 == 0);
-	assert(height % 16 == 0);
+	int result = vc_dispmanx_display_close(m_display);
+	assert(result == 0);
+}
 
+DispmanxLayer::DispmanxLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int pitch,
+		int32_t dst_image_width, int32_t dst_image_height,
+		int32_t src_image_width, int32_t src_image_height)
+{
+	// palette
+	assert(pitch == 2 || pitch == 4);
+	VC_IMAGE_TYPE_T palette = pitch == 4 ? VC_IMAGE_ARGB8888 : VC_IMAGE_RGBA16;
+
+	if(src_image_width == -1) src_image_width = dst_image_width;
+	if(src_image_height == -1) src_image_height = dst_image_height;
+
+	// Destination image dimensions should be divisible by 16
+	assert(dst_image_width % 16 == 0);
+	assert(dst_image_height % 16 == 0);
+
+	// set image rectangles
+	VC_RECT_T srcRect;
+	VC_RECT_T dstRect;
+	vc_dispmanx_rect_set(&(m_bmpRect), 0, 0, src_image_width, src_image_height);
+	vc_dispmanx_rect_set(&(srcRect), 0 << 16, 0 << 16, src_image_width << 16, src_image_height << 16);
+	vc_dispmanx_rect_set(&(dstRect), margin_left, margin_top, dst_image_width, dst_image_height);
+
+	// Image vars
+	m_image_pitch = src_image_width * pitch;
+	m_layer = layer;
+
+	// create image resource
 	uint32_t vc_image_ptr;
-	image_layer.layer = layer;
-
-	// Init image
-	image_layer.image.width = width;
-	image_layer.image.height = height;
-	image_layer.image.pitch = width * 4;
-	image_layer.image.size = image_layer.image.pitch * height;
-
-	image_layer.resource = vc_dispmanx_resource_create(
-		VC_IMAGE_ARGB8888,
-		width | (image_layer.image.pitch << 16),
-		height | (image_layer.image.height << 16),
+	m_resource = vc_dispmanx_resource_create(
+		palette,
+		src_image_width | (m_image_pitch << 16),
+		src_image_height | (src_image_height << 16),
 		&vc_image_ptr);
-
-	assert(image_layer.resource != 0);
-
-	// set bmpRect as being whole image
-	vc_dispmanx_rect_set(&(image_layer.bmpRect), 0, 0,
-		image_layer.image.width, image_layer.image.height);
+	assert(m_resource != 0);
 
 	// Position currently empty image on screen
 	m_update = vc_dispmanx_update_start(0);
 	assert(m_update != 0);
 
-	vc_dispmanx_rect_set(&(image_layer.srcRect), 0 << 16, 0 << 16,
-		image_layer.image.width << 16, image_layer.image.height << 16);
-
-	vc_dispmanx_rect_set(&(image_layer.dstRect), margin_left, margin_top,
-		image_layer.image.width, image_layer.image.height);
-
 	VC_DISPMANX_ALPHA_T alpha = { DISPMANX_FLAGS_ALPHA_FROM_SOURCE, 255, 0 };
 
-	image_layer.element = vc_dispmanx_element_add(m_update, m_display, image_layer.layer, 
-		&(image_layer.dstRect), image_layer.resource, &(image_layer.srcRect),
+	m_element = vc_dispmanx_element_add(m_update, m_display, -30,
+		&(dstRect), m_resource, &(srcRect),
 		DISPMANX_PROTECTION_NONE, &alpha, NULL, DISPMANX_NO_ROTATE);
 
-	assert(image_layer.element != 0);
+	assert(m_element != 0);
 
 	int result = vc_dispmanx_update_submit_sync(m_update);
 	assert(result == 0);
 }
 
-void changeImageLayer(int new_layer)
+void DispmanxLayer::changeImageLayer(int new_layer)
 {
 	m_update = vc_dispmanx_update_start(0);
 	assert(m_update != 0);
 
 	// change layer to new_layer
-	int ret = vc_dispmanx_element_change_attributes(m_update, image_layer.element,
+	int ret = vc_dispmanx_element_change_attributes(m_update, m_element,
 		ELEMENT_CHANGE_LAYER, new_layer, 255, NULL, NULL, 0, DISPMANX_NO_ROTATE);
 	assert( ret == 0 );
 
@@ -136,52 +129,49 @@ void changeImageLayer(int new_layer)
 	assert( ret == 0 );
 }
 
-void hideElement()
+void DispmanxLayer::hideElement()
 {
-	if(element_is_hidden) return;
+	if(m_element_is_hidden) return;
 	changeImageLayer(-30);
-	element_is_hidden = true;
+	m_element_is_hidden = true;
 }
 
-void showElement()
+void DispmanxLayer::showElement()
 {
-	if(!element_is_hidden) return;
-	changeImageLayer(image_layer.layer);
-	element_is_hidden = false;
+	if(!m_element_is_hidden) return;
+	changeImageLayer(m_layer);
+	m_element_is_hidden = false;
 }
 
 // copy image data to screen and make the element visible
-void setImageData(void *image_data)
+void DispmanxLayer::setImageData(void *image_data)
 {
-	int result = vc_dispmanx_resource_write_data(image_layer.resource,
-		VC_IMAGE_ARGB8888, image_layer.image.pitch, image_data, &(image_layer.bmpRect));
+	// the palette param is ignored
+	int result = vc_dispmanx_resource_write_data(m_resource,
+		VC_IMAGE_MIN, m_image_pitch, image_data, &(m_bmpRect));
 
 	assert(result == 0);
 
-	result = vc_dispmanx_element_change_source(m_update, image_layer.element,
-		image_layer.resource);
+	result = vc_dispmanx_element_change_source(m_update, m_element, m_resource);
 
 	assert(result == 0);
 
 	showElement();
 }
 
-void removeImageLayer()
+DispmanxLayer::~DispmanxLayer()
 {
 	int result = 0;
 
-	DISPMANX_UPDATE_HANDLE_T update = vc_dispmanx_update_start(0);
-	assert(update != 0);
+	m_update = vc_dispmanx_update_start(0);
+	assert(m_update != 0);
 
-	result = vc_dispmanx_element_remove(update, image_layer.element);
+	result = vc_dispmanx_element_remove(m_update, m_element);
 	assert(result == 0);
 
-	result = vc_dispmanx_update_submit_sync(update);
+	result = vc_dispmanx_update_submit_sync(m_update);
 	assert(result == 0);
 
-	result = vc_dispmanx_resource_delete(image_layer.resource);
-	assert(result == 0);
-
-	result = vc_dispmanx_display_close(m_display);
+	result = vc_dispmanx_resource_delete(m_resource);
 	assert(result == 0);
 }
