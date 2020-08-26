@@ -64,13 +64,20 @@ void DispmanxLayer::closeDisplay()
 	assert(result == 0);
 }
 
-DispmanxLayer::DispmanxLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int pitch,
-		int32_t dst_image_width, int32_t dst_image_height,
-		int32_t src_image_width, int32_t src_image_height)
+DispmanxLayer::DispmanxLayer(int layer, int bytesperpixel,
+		int margin_left, int margin_top,
+		int dst_image_width, int dst_image_height,
+		int src_image_width, int src_image_height)
 {
-	// palette
-	assert(pitch == 2 || pitch == 4);
-	VC_IMAGE_TYPE_T palette = pitch == 4 ? VC_IMAGE_ARGB8888 : VC_IMAGE_RGBA16;
+	// image type
+	VC_IMAGE_TYPE_T imagetype;
+
+	switch(bytesperpixel) {
+		case 4:		imagetype = VC_IMAGE_ARGB8888;	break;
+		case 2:		imagetype = VC_IMAGE_RGBA16;	break;
+		case 1:		imagetype = VC_IMAGE_8BPP;		break;
+		default:	assert(0);
+	}
 
 	if(src_image_width == -1) src_image_width = dst_image_width;
 	if(src_image_height == -1) src_image_height = dst_image_height;
@@ -79,7 +86,7 @@ DispmanxLayer::DispmanxLayer(int32_t layer, int32_t margin_left, int32_t margin_
 	assert(dst_image_width % 16 == 0);
 	assert(dst_image_height % 16 == 0);
 
-	// set image rectangles
+	// image rectangles
 	VC_RECT_T srcRect;
 	VC_RECT_T dstRect;
 	vc_dispmanx_rect_set(&(m_bmpRect), 0, 0, src_image_width, src_image_height);
@@ -87,17 +94,28 @@ DispmanxLayer::DispmanxLayer(int32_t layer, int32_t margin_left, int32_t margin_
 	vc_dispmanx_rect_set(&(dstRect), margin_left, margin_top, dst_image_width, dst_image_height);
 
 	// Image vars
-	m_image_pitch = src_image_width * pitch;
+	m_image_pitch = src_image_width * bytesperpixel;
 	m_layer = layer;
 
 	// create image resource
-	uint32_t vc_image_ptr;
+	uint vc_image_ptr;
 	m_resource = vc_dispmanx_resource_create(
-		palette,
+		imagetype,
 		src_image_width | (m_image_pitch << 16),
 		src_image_height | (src_image_height << 16),
 		&vc_image_ptr);
 	assert(m_resource != 0);
+
+	// set palette is necessary
+	if(imagetype == VC_IMAGE_8BPP) {
+		int palette[256]; // ARGB 256
+		palette[0] = 0x00000000; // transparent background
+		palette[1] = 0xFFFFFFFF; // white outline
+		palette[2] = 0xFF000000; // black text
+		palette[3] = 0xFF7F7F7F; // gray;
+
+		vc_dispmanx_resource_set_palette( m_resource, palette, 0, sizeof palette );
+	}
 
 	// Position currently empty image on screen
 	m_update = vc_dispmanx_update_start(0);

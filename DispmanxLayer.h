@@ -33,9 +33,9 @@
 class DispmanxLayer
 {
 public:
-	DispmanxLayer(int32_t layer, int32_t margin_left, int32_t margin_top, int pitch,
-		int32_t src_width, int32_t src_height,
-		int32_t dst_width = -1, int32_t dst_height = -1);
+	DispmanxLayer(int layer, int margin_left, int margin_top, int pitch,
+		int src_width, int src_height,
+		int dst_width = -1, int dst_height = -1);
 	~DispmanxLayer();
 
 	void hideElement();
@@ -49,8 +49,8 @@ private:
 	void showElement();
 
 	VC_RECT_T m_bmpRect;
-	int32_t m_layer;
-	int32_t m_image_pitch;
+	int m_layer;
+	int m_image_pitch;
 	DISPMANX_RESOURCE_HANDLE_T m_resource;
 	DISPMANX_ELEMENT_HANDLE_T m_element;
 	DISPMANX_UPDATE_HANDLE_T m_update;

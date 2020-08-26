@@ -106,7 +106,6 @@ class SubtitleRenderer {
 		// positional elements
 		int left_aligned_margin;
 		bool m_centered;
-		int m_screen_center;
 		bool m_ghost_box;
 		int m_max_lines;
 		int m_image_width; // must be evenly divisible by 16
@@ -121,6 +120,5 @@ class SubtitleRenderer {
 		// scaled version for image and screen vars for scaled dvd subtitle layer
 		int m_scaled_image_width;
 		int m_scaled_image_height;
-		int m_scaled_screen_center;
 		int m_scaled_padding;
 };

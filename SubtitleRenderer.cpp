@@ -64,11 +64,11 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	m_image_height = (m_max_lines * line_height) + 5;
 	m_image_height = (m_image_height + 15) & ~15; // grow to fit
 
-	m_image_width = screen_width - 100;
+	m_image_width = screen_width - 100; // avoid screen overshooting
 	m_image_width = m_image_width & ~15; // shrink to fit
 
 	// make sure image doesn't overshoot screen
-	int left_margin = 50;
+	int left_margin = (screen_width - m_image_width) / 2;
 
 	// bottom margin (relative to top)
 	int top_margin = screen_height - m_image_height - (line_height / 2);
@@ -77,7 +77,7 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	// were rarely longer than 1300px. We also assume that marger font sizes (frequently used
 	// in East Asian scripts) would result in shorter not longer subtitles.
 	int assumed_longest_subtitle_line_in_pixels = 1300;
-	m_screen_center = screen_width / 2;
+
 	if(screen_width > assumed_longest_subtitle_line_in_pixels)
 		left_aligned_margin = (int)(screen_width - assumed_longest_subtitle_line_in_pixels) / 2;
 	else if(screen_width > screen_height)
@@ -88,16 +88,15 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	// scaled version for image and screen vars for scaled dvd subtitle layer
 	// scale factor assumes a dvd font size of 30 pixels
 	float vscale = (screen_height * r_font_size) / 30;
-	float hscale = vscale * 1.45;
+	float hscale = vscale * 1.42;
 
 	m_scaled_image_width = m_image_width / hscale;
 	m_scaled_image_height = m_image_height / vscale;
-	m_scaled_screen_center = m_screen_center / hscale;
 	m_scaled_padding = m_padding / vscale;
 
 	// Create image layers
-	subtitleLayer = new DispmanxLayer(layer_num, left_margin, top_margin, 4, m_image_width, m_image_height);
-	dvdSubLayer = new DispmanxLayer(layer_num, left_margin, top_margin, 2, m_image_width, m_image_height, m_scaled_image_width, m_scaled_image_height);
+	subtitleLayer = new DispmanxLayer(layer_num, 4, left_margin, top_margin, m_image_width, m_image_height);
+	dvdSubLayer = new DispmanxLayer(layer_num, 1, left_margin, top_margin, m_image_width, m_image_height, m_scaled_image_width, m_scaled_image_height);
 
 	// font faces
 	cairo_font_face_t *normal_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
@@ -221,10 +220,8 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 					&parsed_lines[i][j].num_glyphs,
 					NULL, NULL, NULL);
 
-			if (status != CAIRO_STATUS_SUCCESS) {
-				puts("cairo_scaled_font_text_to_glyphs: failed");
+			if (status != CAIRO_STATUS_SUCCESS)
 				return;
-			}
 
 			// calculate font extents
 			cairo_text_extents_t extents;
@@ -239,7 +236,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 
 		// aligned text
 		if(m_centered) {
-			cursor_x_position = m_screen_center - (box_width / 2);
+			cursor_x_position = (m_image_width / 2) - (box_width / 2);
 
 			for(int j = 0; j < text_parts; j++) {
 				cairo_glyph_t *p = parsed_lines[i][j].glyphs;
@@ -293,21 +290,22 @@ void SubtitleRenderer::make_subtitle_image(int &sub_width, int &sub_height, basi
 	if(sub_width < 1 || sub_width > m_scaled_image_width || sub_height < 1 || sub_height > m_scaled_image_height)
 		return;
 
-	p = other_image_data = (unsigned char *)malloc(m_scaled_image_width * m_scaled_image_height * 2);
+	p = other_image_data = (unsigned char *)malloc(m_scaled_image_width * m_scaled_image_height);
 
 	auto mem_set = [&p](int num_pixels)
 	{
-		memset(p, '\0', num_pixels * 2);
-		p += num_pixels * 2;
+		memset(p, '\0', num_pixels);
+		p += num_pixels;
 	};
 
-	auto mem_copy = [&p](const char *pixel)
+	auto mem_copy = [&p](const unsigned char *pixel, int len)
 	{
-		memcpy(p, pixel, 2);
-		p += 2;
+		memcpy(p, pixel, len);
+		p += len;
 	};
 
-	int left_padding = m_scaled_screen_center - (sub_width / 2);
+	// m_scaled_image_width and sub_width can be odd numbers
+	int left_padding = (m_scaled_image_width / 2) - (sub_width / 2);
 	int right_padding = m_scaled_image_width - sub_width - left_padding;
 
 	int bottom_padding = m_scaled_padding;
@@ -320,25 +318,14 @@ void SubtitleRenderer::make_subtitle_image(int &sub_width, int &sub_height, basi
 	// blanks char at top
 	mem_set(top_padding * m_scaled_image_width);
 
-	for(int j = 0, i = 0; j < sub_height; j++) {
+	for(int j = 0; j < sub_height; j++) {
 		mem_set(left_padding);
-
-		for(int h = 0; h < sub_width; h++, i++) {
-			if(pixels[i] == '\x01') {
-				mem_copy("\xFF\xFF"); // white outline text
-			} else if(pixels[i] == '\x02') {
-				mem_copy("\x0F\x00"); // black text
-			} else if(pixels[i] == '\x03') {
-				mem_copy("\x7F\x77"); // gray
-			} else {
-				mem_copy("\x00\x00"); // fully transparent
-			}
-		} // colour order is BARG
-
+		const unsigned char *x = pixels.data() + (j * sub_width);
+		mem_copy(x, sub_width);
 		mem_set(right_padding);
 	}
 
-	// blanks char at top
+	// blanks char at bottom
 	mem_set(bottom_padding * m_scaled_image_width);
 
 	m_prepared_from_image = true;
