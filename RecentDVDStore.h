@@ -28,7 +28,7 @@ class RecentDVDStore
 public:
 	RecentDVDStore();
 	void readStore();
-	int setCurrentDVD(string key, int &track);
+	int setCurrentDVD(const string &key, int &track);
 	void remember(int track, int time);
 	void saveStore();
 

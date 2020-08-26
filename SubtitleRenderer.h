@@ -81,6 +81,7 @@ class SubtitleRenderer {
 		};
 
 		bool m_prepared = false;
+		unsigned char *image_data;
 
 		DispmanxLayer *subtitleLayer;
 

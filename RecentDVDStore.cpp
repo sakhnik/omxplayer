@@ -58,7 +58,7 @@ void RecentDVDStore::readStore()
 	s.close();
 }
 
-int RecentDVDStore::setCurrentDVD(string key, int &track)
+int RecentDVDStore::setCurrentDVD(const string &key, int &track)
 {
 	current_dvd = key;
 	int time = 0;

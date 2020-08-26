@@ -258,13 +258,13 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 		cursor_y_position -= m_font_size + m_padding;
 	}
 
+	image_data = cairo_image_surface_get_data(m_surface);
 	m_prepared = true;
 }
 
 void SubtitleRenderer::show_next()
 {
 	if(m_prepared) {
-		unsigned char *image_data = cairo_image_surface_get_data(m_surface);
 		subtitleLayer->setImageData(image_data);
 		unprepare();
 	}
