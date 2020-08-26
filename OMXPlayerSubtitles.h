@@ -23,6 +23,7 @@
 #include "OMXClock.h"
 #include "Subtitle.h"
 #include "utils/Mailbox.h"
+#include "DllAvCodec.h"
 
 #include <boost/config.hpp>
 #include <boost/circular_buffer.hpp>
@@ -88,6 +89,10 @@ public:
 
   bool AddPacket(OMXPacket *pkt, size_t stream_index) BOOST_NOEXCEPT;
 
+protected:
+  DllAvCodec                m_dllAvCodec;
+  AVCodecContext           *m_dvd_codec_context;
+
 private:
   struct Message {
     struct Stop {};
@@ -132,7 +137,8 @@ private:
                   bool ghost_box,
                   unsigned int lines,
                   OMXClock* clock);
-  std::vector<std::string> GetTextLines(OMXPacket *pkt);
+  bool GetTextLines(OMXPacket *pkt, Subtitle &sub);
+  bool GetImageData(OMXPacket *pkt, Subtitle &sub);
   void FlushRenderer();
 
   std::vector<Subtitle>                         m_external_subtitles;

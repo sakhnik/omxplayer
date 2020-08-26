@@ -18,6 +18,8 @@
 
 #include "OMXPlayerSubtitles.h"
 #include "SubtitleRenderer.h"
+#include "Subtitle.h"
+#include "DllAvCodec.h"
 #include "utils/Enforce.h"
 #include "utils/ScopeExit.h"
 #include "utils/Clamp.h"
@@ -86,6 +88,11 @@ bool OMXPlayerSubtitles::Open(size_t stream_count,
 
   SendToRenderer(Message::Flush{m_external_subtitles});
 
+  AVCodec *dvd_codec = m_dllAvCodec.avcodec_find_decoder(AV_CODEC_ID_DVD_SUBTITLE);
+  m_dvd_codec_context = m_dllAvCodec.avcodec_alloc_context3(dvd_codec);
+  // m_dvd_codec_context->sample_aspect_ratio = { 64, 45 };
+  m_dllAvCodec.avcodec_open2(m_dvd_codec_context, dvd_codec, NULL);
+
 #ifndef NDEBUG
   m_open = true;
 #endif
@@ -103,6 +110,9 @@ void OMXPlayerSubtitles::Close() BOOST_NOEXCEPT
 
   m_mailbox.clear();
   m_subtitle_buffers.clear();
+
+  if(m_dvd_codec_context)
+    avcodec_free_context(&m_dvd_codec_context);
 
 #ifndef NDEBUG
   m_open = false;
@@ -175,7 +185,7 @@ RenderLoop(float font_size,
     {
       if(subtitles[next_index].stop > time)
       {
-        renderer.prepare(subtitles[next_index].text_lines);
+        renderer.prepare(subtitles[next_index]);
         have_next = true;
         break;
       }
@@ -194,7 +204,7 @@ RenderLoop(float font_size,
 
     if(next_index != subtitles.size())
     {
-      renderer.prepare(subtitles[next_index].text_lines);
+      renderer.prepare(subtitles[next_index]);
       have_next = true;
     }
     else
@@ -403,17 +413,8 @@ void OMXPlayerSubtitles::SetActiveStream(size_t index) BOOST_NOEXCEPT
     FlushRenderer();
 }
 
-vector<string> OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt)
+bool OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt, Subtitle &sub)
 {
-  assert(pkt);
-
-  vector<string> text_lines;
-
-  if(pkt->hints.codec != AV_CODEC_ID_SUBRIP &&
-     pkt->hints.codec != AV_CODEC_ID_SSA &&
-     pkt->hints.codec != AV_CODEC_ID_ASS)
-    return text_lines;
-
   char *start, *end;
   start = (char*)pkt->data;
   end   = (char*)pkt->data + pkt->size;
@@ -442,7 +443,7 @@ vector<string> OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt)
       *p = '\0';
 
       if(*current_line != '\0') // ignore blank lines
-        text_lines.push_back(current_line);
+        sub.text_lines.push_back(current_line);
 
       p += 2;
       current_line = p;
@@ -454,7 +455,7 @@ vector<string> OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt)
 	  if(p > current_line && *(p - 1) == '\r') *(p - 1) = '\0';
 
       if(*current_line != '\0') // ignore blank lines
-        text_lines.push_back(current_line);
+        sub.text_lines.push_back(current_line);
 
       p++;
       current_line = p;
@@ -462,9 +463,29 @@ vector<string> OMXPlayerSubtitles::GetTextLines(OMXPacket *pkt)
       p++;
     }
   }
-  text_lines.push_back(current_line);
 
-  return text_lines;
+  if(*current_line != '\0') // ignore blank lines
+    sub.text_lines.push_back(current_line);
+
+  return !sub.text_lines.empty();
+}
+
+bool OMXPlayerSubtitles::GetImageData(OMXPacket *pkt, Subtitle &sub)
+{
+  AVSubtitle s;
+  int got_sub_ptr = -1;
+  m_dllAvCodec.avcodec_decode_subtitle2(m_dvd_codec_context, &s, &got_sub_ptr, pkt);
+
+  if(got_sub_ptr < 1 || s.num_rects < 1) return false;
+
+  // Fix time
+  sub.stop = sub.start + (s.end_display_time - s.start_display_time);
+
+  sub.image_data.assign(s.rects[0]->pict.data[0], s.rects[0]->pict.linesize[0] * s.rects[0]->h);
+  sub.height = s.rects[0]->h;
+  sub.width = s.rects[0]->w;
+
+  return true;
 }
 
 bool OMXPlayerSubtitles::AddPacket(OMXPacket *pkt, size_t stream_index) BOOST_NOEXCEPT
@@ -482,30 +503,38 @@ bool OMXPlayerSubtitles::AddPacket(OMXPacket *pkt, size_t stream_index) BOOST_NO
 
   if(pkt->hints.codec != AV_CODEC_ID_SUBRIP && 
      pkt->hints.codec != AV_CODEC_ID_SSA &&
-     pkt->hints.codec != AV_CODEC_ID_ASS)
+     pkt->hints.codec != AV_CODEC_ID_ASS &&
+     pkt->hints.codec != AV_CODEC_ID_DVD_SUBTITLE)
   {
     return true;
   }
 
-  auto start = static_cast<int>(pkt->pts/1000);
-  auto stop = start + static_cast<int>(pkt->duration/1000);
-  auto text_lines = GetTextLines(pkt);
+  Subtitle sub(pkt->hints.codec == AV_CODEC_ID_DVD_SUBTITLE);
+
+  sub.start = static_cast<int>(pkt->pts/1000);
+  sub.stop = sub.start + static_cast<int>(pkt->duration/1000);
 
   if (!m_subtitle_buffers[stream_index].empty() &&
-    stop < m_subtitle_buffers[stream_index].back().stop)
+    sub.stop < m_subtitle_buffers[stream_index].back().stop)
   {
-    stop = m_subtitle_buffers[stream_index].back().stop;
+    sub.stop = m_subtitle_buffers[stream_index].back().stop;
   }
 
-  m_subtitle_buffers[stream_index].push_back(
-    Subtitle(start, stop, vector<string>()));
-  m_subtitle_buffers[stream_index].back().text_lines = text_lines;
+  bool success;
+  if(pkt->hints.codec == AV_CODEC_ID_DVD_SUBTITLE)
+    success = GetImageData(pkt, sub);
+  else
+    success = GetTextLines(pkt, sub);
+
+  if(!success) return false;
+
+  m_subtitle_buffers[stream_index].push_back(sub);
 
   if(!GetUseExternalSubtitles() &&
      GetVisible() &&
      stream_index == GetActiveStream())
   {
-    SendToRenderer(Message::Push{{start, stop, std::move(text_lines)}});
+    SendToRenderer(Message::Push{std::move(sub)});
   }
 
   return true;

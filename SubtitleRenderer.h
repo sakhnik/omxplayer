@@ -23,6 +23,8 @@
 
 #include <cairo.h>
 
+#include "Subtitle.h"
+
 class CRegExp;
 class DispmanxLayer;
 using namespace std;
@@ -39,13 +41,15 @@ class SubtitleRenderer {
 
 		~SubtitleRenderer();
 
+		void prepare(Subtitle &sub);
 		void prepare(vector<string> &lines);
 		void show_next();
 		void hide();
 		void unprepare();
 
 	private:
-		DispmanxLayer *defaultSubLayer;
+		DispmanxLayer *subtitleLayer;
+		DispmanxLayer *dvdSubLayer;
 
 		class SubtitleText
 		{
@@ -65,6 +69,7 @@ class SubtitleRenderer {
 
 		void parse_lines(vector<string> &text_lines);
 		void make_subtitle_image(vector<vector<SubtitleText> > &parsed_lines);
+		void make_subtitle_image(int &sub_width, int &sub_height, basic_string<unsigned char> &pixels);
 		int hex2int(const char *hex);
 
 		CRegExp *m_tags;
@@ -80,10 +85,10 @@ class SubtitleRenderer {
 			BOLD_FONT,
 		};
 
-		bool m_prepared = false;
-		unsigned char *image_data;
-
-		DispmanxLayer *subtitleLayer;
+		bool m_prepared_from_image = false;
+		bool m_prepared_from_text = false;
+		unsigned char *cairo_image_data;
+		unsigned char *other_image_data;
 
 		// cairo stuff
 		cairo_surface_t *m_surface;
@@ -112,4 +117,10 @@ class SubtitleRenderer {
 		int m_font_size;
 		int m_current_font;
 		int m_color;
+
+		// scaled version for image and screen vars for scaled dvd subtitle layer
+		int m_scaled_image_width;
+		int m_scaled_image_height;
+		int m_scaled_screen_center;
+		int m_scaled_padding;
 };

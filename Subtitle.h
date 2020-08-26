@@ -30,15 +30,25 @@
 #include <string>
 #include <utility>
 
-struct Subtitle {
+class Subtitle {
+  public:
+  Subtitle(bool is_image)
+  : isImage(is_image)
+  {}
+
   template <typename T>
   Subtitle(int start, int stop, T&& text_lines)
   : start(start),
     stop(stop),
+    isImage(false),
     text_lines(std::forward<T>(text_lines))
   {}
 
   int start;
   int stop;
+  bool isImage = false;
   std::vector<std::string> text_lines;
+  std::basic_string<unsigned char> image_data;
+  int width;
+  int height;
 };

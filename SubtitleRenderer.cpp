@@ -27,6 +27,7 @@
 #include "utils/RegExp.h"
 #include "SubtitleRenderer.h"
 #include "DispmanxLayer.h"
+#include "Subtitle.h"
 
 using namespace std;
 
@@ -84,8 +85,19 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 
 	if(left_aligned_margin > left_margin) left_aligned_margin -= left_margin;
 
+	// scaled version for image and screen vars for scaled dvd subtitle layer
+	// scale factor assumes a dvd font size of 30 pixels
+	float vscale = (screen_height * r_font_size) / 30;
+	float hscale = vscale * 1.45;
+
+	m_scaled_image_width = m_image_width / hscale;
+	m_scaled_image_height = m_image_height / vscale;
+	m_scaled_screen_center = m_screen_center / hscale;
+	m_scaled_padding = m_padding / vscale;
+
 	// Create image layers
 	subtitleLayer = new DispmanxLayer(layer_num, left_margin, top_margin, 4, m_image_width, m_image_height);
+	dvdSubLayer = new DispmanxLayer(layer_num, left_margin, top_margin, 2, m_image_width, m_image_height, m_scaled_image_width, m_scaled_image_height);
 
 	// font faces
 	cairo_font_face_t *normal_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
@@ -155,11 +167,21 @@ void SubtitleRenderer::set_color(int new_color)
 }
 
 
+void SubtitleRenderer::prepare(Subtitle &sub)
+{
+	unprepare();
+
+	if(sub.isImage)
+		make_subtitle_image(sub.width, sub.height, sub.image_data);
+	else
+		parse_lines(sub.text_lines);
+}
+
 void SubtitleRenderer::prepare(vector<string> &lines)
 {
-	if(m_prepared) unprepare();
+    unprepare();
 
-	parse_lines(lines);
+    parse_lines(lines);
 }
 
 void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed_lines)
@@ -258,14 +280,79 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 		cursor_y_position -= m_font_size + m_padding;
 	}
 
-	image_data = cairo_image_surface_get_data(m_surface);
-	m_prepared = true;
+	cairo_image_data = cairo_image_surface_get_data(m_surface);
+	m_prepared_from_text = true;
+}
+
+
+void SubtitleRenderer::make_subtitle_image(int &sub_width, int &sub_height, basic_string<unsigned char> &pixels)
+{
+	unsigned char *p;
+
+	// Subtitles which exceed dimensions are ignored
+	if(sub_width < 1 || sub_width > m_scaled_image_width || sub_height < 1 || sub_height > m_scaled_image_height)
+		return;
+
+	p = other_image_data = (unsigned char *)malloc(m_scaled_image_width * m_scaled_image_height * 2);
+
+	auto mem_set = [&p](int num_pixels)
+	{
+		memset(p, '\0', num_pixels * 2);
+		p += num_pixels * 2;
+	};
+
+	auto mem_copy = [&p](const char *pixel)
+	{
+		memcpy(p, pixel, 2);
+		p += 2;
+	};
+
+	int left_padding = m_scaled_screen_center - (sub_width / 2);
+	int right_padding = m_scaled_image_width - sub_width - left_padding;
+
+	int bottom_padding = m_scaled_padding;
+	int top_padding = m_scaled_image_height - sub_height - bottom_padding;
+
+	// Subtitles which exceed dimensions are ignored
+	if(left_padding < 0 || right_padding < 0 || bottom_padding < 0 || top_padding < 0)
+		return;
+
+	// blanks char at top
+	mem_set(top_padding * m_scaled_image_width);
+
+	for(int j = 0, i = 0; j < sub_height; j++) {
+		mem_set(left_padding);
+
+		for(int h = 0; h < sub_width; h++, i++) {
+			if(pixels[i] == '\x01') {
+				mem_copy("\xFF\xFF"); // white outline text
+			} else if(pixels[i] == '\x02') {
+				mem_copy("\x0F\x00"); // black text
+			} else if(pixels[i] == '\x03') {
+				mem_copy("\x7F\x77"); // gray
+			} else {
+				mem_copy("\x00\x00"); // fully transparent
+			}
+		} // colour order is BARG
+
+		mem_set(right_padding);
+	}
+
+	// blanks char at top
+	mem_set(bottom_padding * m_scaled_image_width);
+
+	m_prepared_from_image = true;
 }
 
 void SubtitleRenderer::show_next()
 {
-	if(m_prepared) {
-		subtitleLayer->setImageData(image_data);
+	if(m_prepared_from_image) {
+		subtitleLayer->hideElement();
+		dvdSubLayer->setImageData(other_image_data);
+		unprepare();
+	} else if(m_prepared_from_text) {
+		dvdSubLayer->hideElement();
+		subtitleLayer->setImageData(cairo_image_data);
 		unprepare();
 	}
 }
@@ -273,15 +360,21 @@ void SubtitleRenderer::show_next()
 void SubtitleRenderer::hide()
 {
 	subtitleLayer->hideElement();
+	dvdSubLayer->hideElement();
 }
 
 void SubtitleRenderer::unprepare()
 {
-	if(!m_prepared) return;
+	if(m_prepared_from_image) {
+		free(other_image_data);
+		m_prepared_from_image = false;
+	}
 
-	cairo_destroy(m_cr);
-	cairo_surface_destroy(m_surface);
-	m_prepared = false;
+	if(m_prepared_from_text) {
+		cairo_destroy(m_cr);
+		cairo_surface_destroy(m_surface);
+		m_prepared_from_text = false;
+	}
 }
 
 // Tag parser functions
@@ -362,6 +455,7 @@ SubtitleRenderer::~SubtitleRenderer()
 
 	// remove DispmanX layer
 	delete subtitleLayer;
+	delete dvdSubLayer;
 	DispmanxLayer::closeDisplay();
 
 	// destroy cairo fonts
