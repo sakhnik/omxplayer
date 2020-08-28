@@ -39,14 +39,21 @@ public:
   OMXPlayerSubtitles& operator=(const OMXPlayerSubtitles&) = delete;
   OMXPlayerSubtitles() BOOST_NOEXCEPT;
   ~OMXPlayerSubtitles() BOOST_NOEXCEPT;
+
+
   bool Open(size_t stream_count,
-            std::vector<Subtitle>&& external_subtitles,
+            int display,
+            int layer,
             float font_size,
             bool centered,
             bool ghost_box,
             unsigned int lines,
-            int display, int layer,
+            vector<Subtitle>&& external_subtitles,
+            Dimension video,
+            float video_aspect,
+            int aspect_mode,
             OMXClock* clock) BOOST_NOEXCEPT;
+
   void Close() BOOST_NOEXCEPT;
   void Flush() BOOST_NOEXCEPT;
   void Resume() BOOST_NOEXCEPT;
@@ -136,6 +143,9 @@ private:
                   bool centered,
                   bool ghost_box,
                   unsigned int lines,
+                  Dimension video,
+                  float video_aspect,
+                  int aspect_mode,
                   OMXClock* clock);
   bool GetTextLines(OMXPacket *pkt, Subtitle &sub);
   bool GetImageData(OMXPacket *pkt, Subtitle &sub);
@@ -162,6 +172,9 @@ private:
   OMXClock*                                     m_av_clock;
   int                                           m_display;
   int                                           m_layer;
+  Dimension                                     m_video;
+  float                                         m_video_aspect;
+  int                                           m_aspect_mode;
 
 #ifndef NDEBUG
   bool m_open;

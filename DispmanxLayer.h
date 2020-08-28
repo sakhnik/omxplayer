@@ -30,18 +30,22 @@
 
 #include <bcm_host.h>
 
+#include "utils/simple_geometry.h"
+
 class DispmanxLayer
 {
 public:
-	DispmanxLayer(int layer, int margin_left, int margin_top, int pitch,
-		int src_width, int src_height,
-		int dst_width = -1, int dst_height = -1);
+	DispmanxLayer(int bytesperpixel, Rectangle dest_rect, Dimension src_image = {-1, -1});
 	~DispmanxLayer();
 
 	void hideElement();
 	void setImageData(void *image_data);
 
-	static void openDisplay(int display_num, int &screen_width, int &screen_height);
+	const int& getSourceWidth();
+	const int& getSourceHeight();
+
+	static void openDisplay(int display_num, int layer);
+	static Dimension getScreenDimensions();
 	static void closeDisplay();
 
 private:
@@ -49,12 +53,13 @@ private:
 	void showElement();
 
 	VC_RECT_T m_bmpRect;
-	int m_layer;
 	int m_image_pitch;
 	DISPMANX_RESOURCE_HANDLE_T m_resource;
 	DISPMANX_ELEMENT_HANDLE_T m_element;
 	DISPMANX_UPDATE_HANDLE_T m_update;
 
 	bool m_element_is_hidden = true;
-	static DISPMANX_DISPLAY_HANDLE_T m_display;
+
+	static int s_layer;
+	static DISPMANX_DISPLAY_HANDLE_T s_display;
 };

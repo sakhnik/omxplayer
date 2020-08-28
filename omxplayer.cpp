@@ -1251,12 +1251,21 @@ int main(int argc, char *argv[])
        ExitGentlyWithMessage("Unable to read the subtitle file");
 
     if(!m_player_subtitles.Open(m_omx_reader.SubtitleStreamCount(),
-                                std::move(external_subtitles),
+                                m_config_video.display,
+                                m_config_video.layer,
+
+                                // text subtitles
                                 m_font_size,
                                 m_centered,
                                 m_ghost_box,
                                 m_subtitle_lines,
-                                m_config_video.display, m_config_video.layer + 1,
+                                std::move(external_subtitles),
+
+                                // image subtitles
+                                {m_config_video.hints.width, m_config_video.hints.height},
+                                m_config_video.hints.aspect,
+                                m_config_video.aspectMode,
+
                                 m_av_clock))
       ExitGentlyOnError();
   }

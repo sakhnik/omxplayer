@@ -30,6 +30,8 @@
 #include <string>
 #include <utility>
 
+#include "utils/simple_geometry.h"
+
 class Subtitle {
   public:
   Subtitle(bool is_image)
@@ -49,6 +51,5 @@ class Subtitle {
   bool isImage = false;
   std::vector<std::string> text_lines;
   std::basic_string<unsigned char> image_data;
-  int width;
-  int height;
+  Rectangle rect;
 };

@@ -32,7 +32,8 @@
 using namespace std;
 
 SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_size,
-	bool centered, bool box_opacity, unsigned int lines)
+	bool centered, bool box_opacity, unsigned int lines, Dimension video,
+	float video_aspect_ratio, int aspect_mode)
 : m_centered(centered),
   m_ghost_box(box_opacity),
   m_max_lines(lines)
@@ -47,12 +48,18 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	m_font_color_curly = new CRegExp(true);
 	m_font_color_curly->RegComp("^\\{\\\\c&h([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})&\\}$");
 
+	// Open display
+	DispmanxLayer::openDisplay(display_num, layer_num);
+
 	// Determine screen size
-	int screen_width, screen_height;
-	DispmanxLayer::openDisplay(display_num, screen_width, screen_height);
+	Dimension screen = DispmanxLayer::getScreenDimensions();
+
+	/*    *    *    *     *    *    *    *    *    *    *    *
+	 * Set up layer for text subtitles and on screen display *
+	 *    *    *    *     *    *    *    *    *    *    *    */
 
 	//Calculate font as thousands of screen height
-	m_font_size = screen_height * r_font_size;
+	m_font_size = screen.height * r_font_size;
 
 	// Calculate padding as 1/4 of the font size
 	m_padding = m_font_size / 4;
@@ -60,43 +67,33 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	// And line_height combines the two
 	int line_height = m_font_size + m_padding;
 
-	// Calculate image height - must be evenly divisible by 16
-	m_image_height = (m_max_lines * line_height) + 5;
-	m_image_height = (m_image_height + 15) & ~15; // grow to fit
-
-	m_image_width = screen_width - 100; // avoid screen overshooting
-	m_image_width = m_image_width & ~15; // shrink to fit
-
-	// make sure image doesn't overshoot screen
-	int left_margin = (screen_width - m_image_width) / 2;
-
-	// bottom margin (relative to top)
-	int top_margin = screen_height - m_image_height - (line_height / 2);
-
 	// A fairly unscientific survey showed that with a font size of 59px subtitles lines
 	// were rarely longer than 1300px. We also assume that marger font sizes (frequently used
 	// in East Asian scripts) would result in shorter not longer subtitles.
 	int assumed_longest_subtitle_line_in_pixels = 1300;
 
-	if(screen_width > assumed_longest_subtitle_line_in_pixels)
-		left_aligned_margin = (int)(screen_width - assumed_longest_subtitle_line_in_pixels) / 2;
-	else if(screen_width > screen_height)
-		left_aligned_margin = (int)(screen_width - screen_height) / 2;
+	// Calculate image dimensions - must be evenly divisible by 16
+	Rectangle text_subtitle_rect;
+	text_subtitle_rect.height = (m_max_lines * line_height + 20) & ~15; // grow to fit
+	text_subtitle_rect.y = screen.height - text_subtitle_rect.height - (line_height / 2);
 
-	if(left_aligned_margin > left_margin) left_aligned_margin -= left_margin;
+	if(m_centered) {
+		text_subtitle_rect.width = (screen.width - 100) & ~15; // shrink to fit
+		text_subtitle_rect.x = (screen.width - text_subtitle_rect.width) / 2; // centered on screen
+	} else {
+		if(screen.width > assumed_longest_subtitle_line_in_pixels) {
+			text_subtitle_rect.x = (screen.width - assumed_longest_subtitle_line_in_pixels) / 2;
+		} else if(screen.width > screen.height) {
+			text_subtitle_rect.x = (screen.width - screen.height) / 2;
+		} else {
+			text_subtitle_rect.x = 100;
+		}
 
-	// scaled version for image and screen vars for scaled dvd subtitle layer
-	// scale factor assumes a dvd font size of 30 pixels
-	float vscale = (screen_height * r_font_size) / 30;
-	float hscale = vscale * 1.42;
+		text_subtitle_rect.width = (screen.width - 100 - text_subtitle_rect.x) & ~15; // shrink to fit
+	}
 
-	m_scaled_image_width = m_image_width / hscale;
-	m_scaled_image_height = m_image_height / vscale;
-	m_scaled_padding = m_padding / vscale;
-
-	// Create image layers
-	subtitleLayer = new DispmanxLayer(layer_num, 4, left_margin, top_margin, m_image_width, m_image_height);
-	dvdSubLayer = new DispmanxLayer(layer_num, 1, left_margin, top_margin, m_image_width, m_image_height, m_scaled_image_width, m_scaled_image_height);
+	// Create layer
+	subtitleLayer = new DispmanxLayer(4, text_subtitle_rect);
 
 	// font faces
 	cairo_font_face_t *normal_font = cairo_toy_font_face_create("FreeSans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
@@ -123,6 +120,40 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	cairo_font_face_destroy(normal_font);
 	cairo_font_face_destroy(italic_font);
 	cairo_font_face_destroy(bold_font);
+
+	/*    *    *    *    *    *    *    *    *    *    *    *
+	 *            Set up layer for DVD subtitles            *
+	 *    *    *    *    *    *    *    *    *    *    *    */
+
+	// Calculate position of view port
+	Rectangle view_port {.width = screen.width, .height = screen.height};
+	float screen_aspect_ratio = (float)screen.width / screen.height;
+	if(aspect_mode != 3 && video_aspect_ratio != screen_aspect_ratio) {
+		if(aspect_mode == 2) {
+			// stretch to fill window without changing aspect ratio
+			if(video_aspect_ratio > screen_aspect_ratio) {
+				view_port.width = screen.height * video_aspect_ratio;
+			} else {
+				view_port.height = screen.width * video_aspect_ratio;
+			}
+		} else {
+			// shrink to fill window without changing aspect ratio
+			if(video_aspect_ratio > screen_aspect_ratio) {
+				view_port.height = screen.width / video_aspect_ratio;
+			} else {
+				view_port.width = screen.height / video_aspect_ratio;
+			}
+		}
+	}
+
+	// adjust width and height so they are divisible by 16
+	view_port.width = view_port.width & ~15;
+	view_port.height = view_port.height & ~15;
+	view_port.x = (screen.width - view_port.width) / 2;
+	view_port.y = (screen.height - view_port.height) / 2;
+
+	// create layer
+	dvdSubLayer = new DispmanxLayer(1, view_port, video);
 }
 
 void SubtitleRenderer::set_font(int new_font_type)
@@ -171,7 +202,7 @@ void SubtitleRenderer::prepare(Subtitle &sub)
 	unprepare();
 
 	if(sub.isImage)
-		make_subtitle_image(sub.width, sub.height, sub.image_data);
+		make_subtitle_image(sub);
 	else
 		parse_lines(sub.text_lines);
 }
@@ -186,7 +217,7 @@ void SubtitleRenderer::prepare(vector<string> &lines)
 void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed_lines)
 {
 	// create surface
-	m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, m_image_width, m_image_height);
+	m_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, subtitleLayer->getSourceWidth(), subtitleLayer->getSourceHeight());
 	m_cr = cairo_create(m_surface);
 
 	// Reset font control vars as no font or drawing dolour has been set
@@ -194,7 +225,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 	m_color = -500;
 
 	// cursor y position
-	int cursor_y_position = m_image_height - m_padding;
+	int cursor_y_position = subtitleLayer->getSourceHeight() - m_padding;
 
 	// Limit the number of line
 	int no_of_lines = parsed_lines.size();
@@ -205,7 +236,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 		int text_parts = parsed_lines[i].size();
 
 		// cursor x position
-		int cursor_x_position = left_aligned_margin;
+		int cursor_x_position = 0;
 
 		for(int j = 0; j < text_parts; j++) {
 			set_font(parsed_lines[i][j].font);
@@ -236,7 +267,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 
 		// aligned text
 		if(m_centered) {
-			cursor_x_position = (m_image_width / 2) - (box_width / 2);
+			cursor_x_position = (subtitleLayer->getSourceWidth() / 2) - (box_width / 2);
 
 			for(int j = 0; j < text_parts; j++) {
 				cairo_glyph_t *p = parsed_lines[i][j].glyphs;
@@ -245,7 +276,7 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 				}
 			}
 		} else {
-			cursor_x_position = left_aligned_margin;
+			cursor_x_position = 0;
 		}
 
 		// draw ghost box
@@ -282,15 +313,15 @@ void SubtitleRenderer::make_subtitle_image(vector<vector<SubtitleText> > &parsed
 }
 
 
-void SubtitleRenderer::make_subtitle_image(int &sub_width, int &sub_height, basic_string<unsigned char> &pixels)
+void SubtitleRenderer::make_subtitle_image(Subtitle &sub)
 {
 	unsigned char *p;
 
 	// Subtitles which exceed dimensions are ignored
-	if(sub_width < 1 || sub_width > m_scaled_image_width || sub_height < 1 || sub_height > m_scaled_image_height)
-		return;
+	if(sub.rect.x + sub.rect.width  > dvdSubLayer->getSourceWidth() || sub.rect.y + sub.rect.height  > dvdSubLayer->getSourceHeight())
+	  return;
 
-	p = other_image_data = (unsigned char *)malloc(m_scaled_image_width * m_scaled_image_height);
+	p = other_image_data = (unsigned char *)malloc(dvdSubLayer->getSourceWidth() * dvdSubLayer->getSourceHeight());
 
 	auto mem_set = [&p](int num_pixels)
 	{
@@ -304,29 +335,20 @@ void SubtitleRenderer::make_subtitle_image(int &sub_width, int &sub_height, basi
 		p += len;
 	};
 
-	// m_scaled_image_width and sub_width can be odd numbers
-	int left_padding = (m_scaled_image_width / 2) - (sub_width / 2);
-	int right_padding = m_scaled_image_width - sub_width - left_padding;
-
-	int bottom_padding = m_scaled_padding;
-	int top_padding = m_scaled_image_height - sub_height - bottom_padding;
-
-	// Subtitles which exceed dimensions are ignored
-	if(left_padding < 0 || right_padding < 0 || bottom_padding < 0 || top_padding < 0)
-		return;
+	int right_padding  = dvdSubLayer->getSourceWidth()  - sub.rect.width  - sub.rect.x;
+	int bottom_padding = dvdSubLayer->getSourceHeight() - sub.rect.height - sub.rect.y;
 
 	// blanks char at top
-	mem_set(top_padding * m_scaled_image_width);
+	mem_set(sub.rect.y * dvdSubLayer->getSourceWidth());
 
-	for(int j = 0; j < sub_height; j++) {
-		mem_set(left_padding);
-		const unsigned char *x = pixels.data() + (j * sub_width);
-		mem_copy(x, sub_width);
+	for(int j = 0; j < sub.rect.height; j++) {
+		mem_set(sub.rect.x);
+		mem_copy(sub.image_data.data() + (j * sub.rect.width), sub.rect.width);
 		mem_set(right_padding);
 	}
 
 	// blanks char at bottom
-	mem_set(bottom_padding * m_scaled_image_width);
+	mem_set(bottom_padding * dvdSubLayer->getSourceWidth());
 
 	m_prepared_from_image = true;
 }

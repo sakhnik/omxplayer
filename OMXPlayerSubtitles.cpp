@@ -56,12 +56,16 @@ OMXPlayerSubtitles::~OMXPlayerSubtitles() BOOST_NOEXCEPT
 }
 
 bool OMXPlayerSubtitles::Open(size_t stream_count,
-                              vector<Subtitle>&& external_subtitles,
+                              int display,
+                              int layer,
                               float font_size,
                               bool centered,
                               bool ghost_box,
                               unsigned int lines,
-                              int display, int layer,
+                              vector<Subtitle>&& external_subtitles,
+                              Dimension video,
+                              float video_aspect,
+                              int aspect_mode,
                               OMXClock* clock) BOOST_NOEXCEPT
 {
   assert(!m_open);
@@ -82,6 +86,11 @@ bool OMXPlayerSubtitles::Open(size_t stream_count,
   m_av_clock = clock;
   m_display = display;
   m_layer = layer;
+
+  m_video.width = video.width;
+  m_video.height = video.height;
+  m_video_aspect = video_aspect;
+  m_aspect_mode = aspect_mode;
 
   if(!Create())
     return false;
@@ -124,7 +133,11 @@ void OMXPlayerSubtitles::Process()
   try
   {
     RenderLoop(m_font_size, m_centered,
-               m_ghost_box, m_lines, m_av_clock);
+               m_ghost_box, m_lines,
+               m_video,
+               m_video_aspect,
+               m_aspect_mode,
+               m_av_clock);
   }
   catch(Enforce_error& e)
   {
@@ -153,13 +166,19 @@ RenderLoop(float font_size,
            bool centered,
            bool ghost_box,
            unsigned int lines,
+           Dimension video,
+           float video_aspect,
+           int aspect_mode,
            OMXClock* clock)
 {
   SubtitleRenderer renderer(m_display, m_layer,
                             font_size,
                             centered,
                             ghost_box,
-                            lines);
+                            lines,
+                            video,
+                            video_aspect,
+                            aspect_mode);
 
   vector<Subtitle> subtitles;
 
@@ -482,8 +501,7 @@ bool OMXPlayerSubtitles::GetImageData(OMXPacket *pkt, Subtitle &sub)
   sub.stop = sub.start + (s.end_display_time - s.start_display_time);
 
   sub.image_data.assign(s.rects[0]->pict.data[0], s.rects[0]->pict.linesize[0] * s.rects[0]->h);
-  sub.height = s.rects[0]->h;
-  sub.width = s.rects[0]->w;
+  sub.rect = {s.rects[0]->x, s.rects[0]->y, s.rects[0]->w, s.rects[0]->h};
 
   return true;
 }

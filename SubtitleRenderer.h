@@ -23,6 +23,7 @@
 
 #include <cairo.h>
 
+#include "utils/simple_geometry.h"
 #include "Subtitle.h"
 
 class CRegExp;
@@ -37,7 +38,10 @@ class SubtitleRenderer {
 						float r_font_size,
 						bool centered,
 						bool box_opacity,
-						unsigned int lines);
+						unsigned int lines,
+						Dimension video,
+						float video_aspect,
+						int aspect_mode);
 
 		~SubtitleRenderer();
 
@@ -69,7 +73,7 @@ class SubtitleRenderer {
 
 		void parse_lines(vector<string> &text_lines);
 		void make_subtitle_image(vector<vector<SubtitleText> > &parsed_lines);
-		void make_subtitle_image(int &sub_width, int &sub_height, basic_string<unsigned char> &pixels);
+		void make_subtitle_image(Subtitle &sub);
 		int hex2int(const char *hex);
 
 		CRegExp *m_tags;
@@ -104,21 +108,13 @@ class SubtitleRenderer {
 		cairo_pattern_t *m_black_font_outline;
 
 		// positional elements
-		int left_aligned_margin;
 		bool m_centered;
 		bool m_ghost_box;
 		int m_max_lines;
-		int m_image_width; // must be evenly divisible by 16
-		int m_image_height;  // must be evenly divisible by 16
 
 		// font properties
 		int m_padding;
 		int m_font_size;
 		int m_current_font;
 		int m_color;
-
-		// scaled version for image and screen vars for scaled dvd subtitle layer
-		int m_scaled_image_width;
-		int m_scaled_image_height;
-		int m_scaled_padding;
 };
