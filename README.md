@@ -67,7 +67,7 @@ Usage: omxplayer [OPTIONS] [FILE]
     -h  --help                  Print this help
     -v  --version               Print version info
     -k  --keys                  Print key bindings
-    -n  --aidx  index           Audio stream index    : e.g. 1
+    -n  --aidx  index           Audio stream index, index can be language code or index number
     -o  --adev  device          Audio out device      : e.g. hdmi/local/both/alsa[:device]
     -i  --info                  Dump stream format and exit
     -I  --with-info             dump stream format before playback
@@ -83,7 +83,7 @@ Usage: omxplayer [OPTIONS] [FILE]
     -M  --allow-mvc             Allow decoding of both views of MVC stereo stream
     -y  --hdmiclocksync         Display refresh rate to match video (default)
     -z  --nohdmiclocksync       Do not adjust display refresh rate to match video
-    -t  --sid index             Show subtitle with index
+    -t  --sid index             Show subtitle with index, index can be language code or index number
     -r  --refresh               Adjust framerate/resolution to video
     -g  --genlog                Generate log file
     -l  --pos n                 Start position (hh:mm:ss)

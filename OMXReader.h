@@ -172,6 +172,7 @@ public:
   std::string GetCodecName(OMXStreamType type, unsigned int index);
   std::string GetStreamCodecName(AVStream *stream);
   std::string GetStreamLanguage(OMXStreamType type, unsigned int index);
+  int GetStreamByLanguage(OMXStreamType type, const char *lang);
   std::string GetStreamName(OMXStreamType type, unsigned int index);
   std::string GetStreamType(OMXStreamType type, unsigned int index);
   bool CanSeek();

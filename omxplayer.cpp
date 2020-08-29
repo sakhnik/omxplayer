@@ -94,7 +94,7 @@ bool              m_ghost_box           = true;
 unsigned int      m_subtitle_lines      = 3;
 bool              m_Pause               = false;
 OMXReader         m_omx_reader;
-int               m_audio_index_use     = 0;
+int               m_audio_index     = -1;
 OMXClock          *m_av_clock           = NULL;
 OMXControl        m_omxcontrol;
 Keyboard          *m_keyboard           = NULL;
@@ -562,6 +562,8 @@ int main(int argc, char *argv[])
   std::string            m_avdict              = "";
   bool                   m_audio_extension     = false;
   int                    m_next_prev_file      = 0;
+  char                   m_audio_lang[4]       = "\0";
+  char                   m_subtitle_lang[4]    = "\0";
 
   const int font_size_opt   = 0x101;
   const int align_opt       = 0x102;
@@ -765,12 +767,28 @@ int main(int argc, char *argv[])
         m_dump_format = true;
         break;
       case 't':
-        m_subtitle_index = atoi(optarg) - 1;
-        if(m_subtitle_index < 0)
-          m_subtitle_index = 0;
+        if(optarg[0] >= '0' && optarg[0] <= '9')
+        {
+          m_subtitle_index = atoi(optarg) - 1;
+          if(m_subtitle_index < 0)
+            m_subtitle_index = 0;
+        }
+        else
+        {
+          strncpy(m_subtitle_lang, optarg, 3);
+          m_subtitle_lang[3] = '\0';
+        }
         break;
       case 'n':
-        m_audio_index_use = atoi(optarg);
+        if(optarg[0] >= '0' && optarg[0] <= '9')
+        {
+          m_audio_index = atoi(optarg) - 1;
+        }
+        else
+        {
+          strncpy(m_audio_lang, optarg, 3);
+          m_audio_lang[3] = '\0';
+        }
         break;
       case 'l':
         {
@@ -1150,9 +1168,12 @@ int main(int argc, char *argv[])
     UpdateRaspicastMetaData(m_filename.substr(lastSlash + 1));
   }
 
-  // auto select an audio stream
-  // Avoid defaulting to narrative description
-  if(m_audio_index_use == 0)
+  // select an audio stream
+  if(m_audio_lang[0] != '\0')
+    m_audio_index = m_omx_reader.GetStreamByLanguage(OMXSTREAM_AUDIO, m_audio_lang);
+
+  // Where no audio stream has been selected, use the first stream other than audio narrative
+  if(m_audio_index == -1)
   {
     int audiostreamcount = m_omx_reader.AudioStreamCount();
 
@@ -1169,7 +1190,7 @@ int main(int argc, char *argv[])
         else
         {
           printf("Selecting audio stream: %d\n", i + 1);
-          m_audio_index_use = i + 1; // variable expects natural numbers
+          m_audio_index = i;
           break;
         }
       }
@@ -1177,7 +1198,7 @@ int main(int argc, char *argv[])
   }
 
   m_has_video     = m_omx_reader.VideoStreamCount();
-  m_has_audio     = m_audio_index_use < 0 ? false : m_omx_reader.AudioStreamCount();
+  m_has_audio     = m_audio_index == -2 ? false : m_omx_reader.AudioStreamCount();
   m_has_subtitle  = m_has_external_subtitles || m_omx_reader.SubtitleStreamCount();
   m_loop          = m_loop && m_omx_reader.CanSeek();
 
@@ -1216,8 +1237,8 @@ int main(int argc, char *argv[])
   if (m_fps > 0.0f)
     m_config_video.hints.fpsrate = m_fps * AV_TIME_BASE, m_config_video.hints.fpsscale = AV_TIME_BASE;
 
-  if(m_audio_index_use > 0)
-    m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, m_audio_index_use-1);
+  if(m_audio_index > -1)
+    m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, m_audio_index);
           
   if(m_has_video && m_refresh)
   {
@@ -1274,10 +1295,12 @@ int main(int argc, char *argv[])
   {
     if(!m_has_external_subtitles)
     {
-      if(m_subtitle_index != -1)
+      if(m_subtitle_lang[0] != '\0')
+        m_subtitle_index = m_omx_reader.GetStreamByLanguage(OMXSTREAM_SUBTITLE, m_subtitle_lang);
+
+      if(m_subtitle_index > -1 && m_subtitle_index < m_omx_reader.SubtitleStreamCount())
       {
-        m_player_subtitles.SetActiveStream(
-          std::min(m_subtitle_index, m_omx_reader.SubtitleStreamCount()-1));
+        m_player_subtitles.SetActiveStream(m_subtitle_index);
       }
       m_player_subtitles.SetUseExternalSubtitles(false);
     }
@@ -1424,8 +1447,9 @@ int main(int argc, char *argv[])
         {
           int new_index = m_omx_reader.GetAudioIndex() - 1;
           if(new_index < 0) new_index = m_omx_reader.AudioStreamCount() - 1;
-          DISPLAY_TEXT_SHORT(strprintf("Audio stream: %d", new_index + 1));
           m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, new_index);
+          strcpy(m_audio_lang, m_omx_reader.GetStreamLanguage(OMXSTREAM_AUDIO, new_index).c_str());
+          DISPLAY_TEXT_SHORT(strprintf("Audio stream: %d %s", new_index + 1, m_audio_lang));
         }
         break;
       case KeyConfig::ACTION_NEXT_AUDIO:
@@ -1433,8 +1457,9 @@ int main(int argc, char *argv[])
         {
           int new_index = m_omx_reader.GetAudioIndex() + 1;
           if(new_index >= m_omx_reader.AudioStreamCount()) new_index = 0;
-          DISPLAY_TEXT_SHORT(strprintf("Audio stream: %d", new_index + 1));
           m_omx_reader.SetActiveStream(OMXSTREAM_AUDIO, new_index);
+          strcpy(m_audio_lang, m_omx_reader.GetStreamLanguage(OMXSTREAM_AUDIO, new_index).c_str());
+          DISPLAY_TEXT_SHORT(strprintf("Audio stream: %d %s", new_index + 1, m_audio_lang));
         }
         break;
       case KeyConfig::ACTION_PREVIOUS_CHAPTER:
@@ -1522,8 +1547,9 @@ int main(int argc, char *argv[])
             {
               int new_index = m_player_subtitles.GetActiveStream() - 1;
               if(new_index < 0) new_index = m_omx_reader.SubtitleStreamCount() - 1;
-              DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d", new_index + 1));
               m_player_subtitles.SetActiveStream(new_index);
+              strcpy(m_subtitle_lang, m_omx_reader.GetStreamLanguage(OMXSTREAM_SUBTITLE, new_index).c_str());
+              DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d %s", new_index + 1, m_subtitle_lang));
             }
           }
 
@@ -1547,8 +1573,9 @@ int main(int argc, char *argv[])
           {
             int new_index = m_player_subtitles.GetActiveStream() + 1;
             if(new_index >= m_omx_reader.SubtitleStreamCount()) new_index = 0;
-            DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d", new_index + 1));
             m_player_subtitles.SetActiveStream(new_index);
+            strcpy(m_subtitle_lang, m_omx_reader.GetStreamLanguage(OMXSTREAM_SUBTITLE, new_index).c_str());
+            DISPLAY_TEXT_SHORT(strprintf("Subtitle stream: %d %s", new_index + 1, m_subtitle_lang));
           }
 
           m_player_subtitles.SetVisible(true);

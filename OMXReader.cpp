@@ -1283,6 +1283,19 @@ std::string OMXReader::GetStreamLanguage(OMXStreamType type, unsigned int index)
   return language;
 }
 
+int OMXReader::GetStreamByLanguage(OMXStreamType type, const char *lang)
+{
+  for(int i = 0; i < MAX_STREAMS; i++)
+  {
+    if(m_streams[i].type == type && strcasecmp(m_streams[i].language, lang) == 0)
+    {
+      return m_streams[i].index;
+    }
+  }
+
+  return -1;
+}
+
 std::string OMXReader::GetStreamName(OMXStreamType type, unsigned int index)
 {
   std::string name = "";
