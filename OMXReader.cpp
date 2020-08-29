@@ -740,7 +740,7 @@ bool OMXReader::GetStreams(bool dump_format)
       if(!chapter)
         continue;
 
-      m_chapters[i] = ConvertTimestamp(chapter->start, chapter->time_base.den, chapter->time_base.num) * 1000000.0f;
+      m_chapters[i] = ConvertTimestamp(chapter->start, chapter->time_base.den, chapter->time_base.num) / 1000000.0f;
 
       if(dump_format) printf("Chapter : \t%d \t%8.2f\n", i, m_chapters[i]);
     }
