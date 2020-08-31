@@ -34,6 +34,7 @@ class OMXDvdPlayer
 
   private:
 	int dvdtime2msec(dvd_time_t *dt);
+	const char* convertLangCode(uint16_t lang);
 	void read_title_name();
 	void read_disc_checksum();
 

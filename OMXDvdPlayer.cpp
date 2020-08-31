@@ -322,9 +322,7 @@ void OMXDvdPlayer::GetStreamInfo(OMXStream *stream)
 	for (int i=0; i < len; i++) {
 		if(titles[current_track].streams[i].id == stream->stream->id) {
 			stream->index = titles[current_track].streams[i].index;
-
-			uint16_t lc = titles[current_track].streams[i].lang;
-			sprintf(stream->language, "%c%c", lc >> 8, lc & 0xff);
+			strcpy(stream->language, convertLangCode(titles[current_track].streams[i].lang));
 			return;
 		}
 	}
@@ -455,4 +453,210 @@ int OMXDvdPlayer::findPrevEnabledTrack(int i)
 		else printf("Skipping Track %d\n", i+1);
 	}
 	return -1;
+}
+
+const char* OMXDvdPlayer::convertLangCode(uint16_t lang)
+{
+	// Convert two letter ISO 639-1 language code to 3 letter ISO 639-2/T
+	// Supports depreciated iw, in and ji codes.
+	// If not found return two letter DVD code
+	switch(lang) {
+		case 0x6161: /* aa */ return "aar";
+		case 0x6162: /* ab */ return "abk";
+		case 0x6165: /* ae */ return "ave";
+		case 0x6166: /* af */ return "afr";
+		case 0x616B: /* ak */ return "aka";
+		case 0x616D: /* am */ return "amh";
+		case 0x616E: /* an */ return "arg";
+		case 0x6172: /* ar */ return "ara";
+		case 0x6173: /* as */ return "asm";
+		case 0x6176: /* av */ return "ava";
+		case 0x6179: /* ay */ return "aym";
+		case 0x617A: /* az */ return "aze";
+		case 0x6261: /* ba */ return "bak";
+		case 0x6265: /* be */ return "bel";
+		case 0x6267: /* bg */ return "bul";
+		case 0x6268: /* bh */ return "bih";
+		case 0x6269: /* bi */ return "bis";
+		case 0x626D: /* bm */ return "bam";
+		case 0x626E: /* bn */ return "ben";
+		case 0x626F: /* bo */ return "bod";
+		case 0x6272: /* br */ return "bre";
+		case 0x6273: /* bs */ return "bos";
+		case 0x6361: /* ca */ return "cat";
+		case 0x6365: /* ce */ return "che";
+		case 0x6368: /* ch */ return "cha";
+		case 0x636F: /* co */ return "cos";
+		case 0x6372: /* cr */ return "cre";
+		case 0x6373: /* cs */ return "ces";
+		case 0x6375: /* cu */ return "chu";
+		case 0x6376: /* cv */ return "chv";
+		case 0x6379: /* cy */ return "cym";
+		case 0x6461: /* da */ return "dan";
+		case 0x6465: /* de */ return "deu";
+		case 0x6476: /* dv */ return "div";
+		case 0x647A: /* dz */ return "dzo";
+		case 0x6565: /* ee */ return "ewe";
+		case 0x656C: /* el */ return "ell";
+		case 0x656E: /* en */ return "eng";
+		case 0x656F: /* eo */ return "epo";
+		case 0x6573: /* es */ return "spa";
+		case 0x6574: /* et */ return "est";
+		case 0x6575: /* eu */ return "eus";
+		case 0x6661: /* fa */ return "fas";
+		case 0x6666: /* ff */ return "ful";
+		case 0x6669: /* fi */ return "fin";
+		case 0x666A: /* fj */ return "fij";
+		case 0x666F: /* fo */ return "fao";
+		case 0x6672: /* fr */ return "fra";
+		case 0x6679: /* fy */ return "fry";
+		case 0x6761: /* ga */ return "gle";
+		case 0x6764: /* gd */ return "gla";
+		case 0x676C: /* gl */ return "glg";
+		case 0x676E: /* gn */ return "grn";
+		case 0x6775: /* gu */ return "guj";
+		case 0x6776: /* gv */ return "glv";
+		case 0x6861: /* ha */ return "hau";
+
+		case 0x6865: /* he */
+		case 0x6977: /* iw */ return "heb";
+
+		case 0x6869: /* hi */ return "hin";
+		case 0x686F: /* ho */ return "hmo";
+		case 0x6872: /* hr */ return "hrv";
+		case 0x6874: /* ht */ return "hat";
+		case 0x6875: /* hu */ return "hun";
+		case 0x6879: /* hy */ return "hye";
+		case 0x687A: /* hz */ return "her";
+		case 0x6961: /* ia */ return "ina";
+
+		case 0x6964: /* id */
+		case 0x696E: /* in */ return "ind";
+
+		case 0x6965: /* ie */ return "ile";
+		case 0x6967: /* ig */ return "ibo";
+		case 0x6969: /* ii */ return "iii";
+		case 0x696B: /* ik */ return "ipk";
+		case 0x696F: /* io */ return "ido";
+		case 0x6973: /* is */ return "isl";
+		case 0x6974: /* it */ return "ita";
+		case 0x6975: /* iu */ return "iku";
+		case 0x6A61: /* ja */ return "jpn";
+		case 0x6A76: /* jv */ return "jav";
+		case 0x6B61: /* ka */ return "kat";
+		case 0x6B67: /* kg */ return "kon";
+		case 0x6B69: /* ki */ return "kik";
+		case 0x6B6A: /* kj */ return "kua";
+		case 0x6B6B: /* kk */ return "kaz";
+		case 0x6B6C: /* kl */ return "kal";
+		case 0x6B6D: /* km */ return "khm";
+		case 0x6B6E: /* kn */ return "kan";
+		case 0x6B6F: /* ko */ return "kor";
+		case 0x6B72: /* kr */ return "kau";
+		case 0x6B73: /* ks */ return "kas";
+		case 0x6B75: /* ku */ return "kur";
+		case 0x6B76: /* kv */ return "kom";
+		case 0x6B77: /* kw */ return "cor";
+		case 0x6B79: /* ky */ return "kir";
+		case 0x6C61: /* la */ return "lat";
+		case 0x6C62: /* lb */ return "ltz";
+		case 0x6C67: /* lg */ return "lug";
+		case 0x6C69: /* li */ return "lim";
+		case 0x6C6E: /* ln */ return "lin";
+		case 0x6C6F: /* lo */ return "lao";
+		case 0x6C74: /* lt */ return "lit";
+		case 0x6C75: /* lu */ return "lub";
+		case 0x6C76: /* lv */ return "lav";
+		case 0x6D67: /* mg */ return "mlg";
+		case 0x6D68: /* mh */ return "mah";
+		case 0x6D69: /* mi */ return "mri";
+		case 0x6D6B: /* mk */ return "mkd";
+		case 0x6D6C: /* ml */ return "mal";
+		case 0x6D6E: /* mn */ return "mon";
+		case 0x6D72: /* mr */ return "mar";
+		case 0x6D73: /* ms */ return "msa";
+		case 0x6D74: /* mt */ return "mlt";
+		case 0x6D79: /* my */ return "mya";
+		case 0x6E61: /* na */ return "nau";
+		case 0x6E62: /* nb */ return "nob";
+		case 0x6E64: /* nd */ return "nde";
+		case 0x6E65: /* ne */ return "nep";
+		case 0x6E67: /* ng */ return "ndo";
+		case 0x6E6C: /* nl */ return "nld";
+		case 0x6E6E: /* nn */ return "nno";
+		case 0x6E6F: /* no */ return "nor";
+		case 0x6E72: /* nr */ return "nbl";
+		case 0x6E76: /* nv */ return "nav";
+		case 0x6E79: /* ny */ return "nya";
+		case 0x6F63: /* oc */ return "oci";
+		case 0x6F6A: /* oj */ return "oji";
+		case 0x6F6D: /* om */ return "orm";
+		case 0x6F72: /* or */ return "ori";
+		case 0x6F73: /* os */ return "oss";
+		case 0x7061: /* pa */ return "pan";
+		case 0x7069: /* pi */ return "pli";
+		case 0x706C: /* pl */ return "pol";
+		case 0x7073: /* ps */ return "pus";
+		case 0x7074: /* pt */ return "por";
+		case 0x7175: /* qu */ return "que";
+		case 0x726D: /* rm */ return "roh";
+		case 0x726E: /* rn */ return "run";
+		case 0x726F: /* ro */ return "ron";
+		case 0x7275: /* ru */ return "rus";
+		case 0x7277: /* rw */ return "kin";
+		case 0x7361: /* sa */ return "san";
+		case 0x7363: /* sc */ return "srd";
+		case 0x7364: /* sd */ return "snd";
+		case 0x7365: /* se */ return "sme";
+		case 0x7367: /* sg */ return "sag";
+		case 0x7369: /* si */ return "sin";
+		case 0x736B: /* sk */ return "slk";
+		case 0x736C: /* sl */ return "slv";
+		case 0x736D: /* sm */ return "smo";
+		case 0x736E: /* sn */ return "sna";
+		case 0x736F: /* so */ return "som";
+		case 0x7371: /* sq */ return "sqi";
+		case 0x7372: /* sr */ return "srp";
+		case 0x7373: /* ss */ return "ssw";
+		case 0x7374: /* st */ return "sot";
+		case 0x7375: /* su */ return "sun";
+		case 0x7376: /* sv */ return "swe";
+		case 0x7377: /* sw */ return "swa";
+		case 0x7461: /* ta */ return "tam";
+		case 0x7465: /* te */ return "tel";
+		case 0x7467: /* tg */ return "tgk";
+		case 0x7468: /* th */ return "tha";
+		case 0x7469: /* ti */ return "tir";
+		case 0x746B: /* tk */ return "tuk";
+		case 0x746C: /* tl */ return "tgl";
+		case 0x746E: /* tn */ return "tsn";
+		case 0x746F: /* to */ return "ton";
+		case 0x7472: /* tr */ return "tur";
+		case 0x7473: /* ts */ return "tso";
+		case 0x7474: /* tt */ return "tat";
+		case 0x7477: /* tw */ return "twi";
+		case 0x7479: /* ty */ return "tah";
+		case 0x7567: /* ug */ return "uig";
+		case 0x756B: /* uk */ return "ukr";
+		case 0x7572: /* ur */ return "urd";
+		case 0x757A: /* uz */ return "uzb";
+		case 0x7665: /* ve */ return "ven";
+		case 0x7669: /* vi */ return "vie";
+		case 0x766F: /* vo */ return "vol";
+		case 0x7761: /* wa */ return "wln";
+		case 0x776F: /* wo */ return "wol";
+		case 0x7868: /* xh */ return "xho";
+
+		case 0x7969: /* yi */
+		case 0x6A69: /* ji */ return "yid";
+
+		case 0x796F: /* yo */ return "yor";
+		case 0x7A61: /* za */ return "zha";
+		case 0x7A68: /* zh */ return "zho";
+		case 0x7A75: /* zu */ return "zul";
+	}
+
+	static char two_letter_code[3];
+	sprintf(two_letter_code, "%c%c", lang >> 8, lang & 0xff);
+	return two_letter_code;
 }
