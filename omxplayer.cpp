@@ -602,6 +602,7 @@ int main(int argc, char *argv[])
   const int lavfdopts_opt   = 0x400;
   const int avdict_opt      = 0x401;
   const int track_opt       = 0x402;
+  const int start_paused_opt = 0x403;
 
   struct option longopts[] = {
     { "info",         no_argument,        NULL,          'i' },
@@ -661,6 +662,7 @@ int main(int argc, char *argv[])
     { "lavfdopts",    required_argument,  NULL,          lavfdopts_opt },
     { "avdict",       required_argument,  NULL,          avdict_opt },
     { "track",        required_argument,  NULL,          track_opt },
+    { "start-paused", no_argument,        NULL,          start_paused_opt },
     { 0, 0, 0, 0 }
   };
 
@@ -940,6 +942,9 @@ int main(int argc, char *argv[])
       case track_opt:
         m_track = atoi(optarg) - 1;
         if(m_track < 0) m_track = -1;
+      case start_paused_opt:
+        m_Pause = true;
+        break;
       case 0:
         break;
       case 'h':
