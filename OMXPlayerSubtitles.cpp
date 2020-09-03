@@ -22,7 +22,6 @@
 #include "DllAvCodec.h"
 #include "utils/Enforce.h"
 #include "utils/ScopeExit.h"
-#include "utils/Clamp.h"
 #include "utils/log.h"
 
 #include <boost/algorithm/string.hpp>
@@ -253,9 +252,8 @@ RenderLoop(float font_size,
 
     if(osd)
     {
-      procrustes(timeout,
-        chrono::duration_cast<std::chrono::milliseconds>(
-          osd_stop - chrono::steady_clock::now()).count());
+      int cap = chrono::duration_cast<std::chrono::milliseconds>(osd_stop - chrono::steady_clock::now()).count();
+      if (cap < timeout) timeout = cap;
     }
 
     m_mailbox.receive_wait(chrono::milliseconds(timeout),

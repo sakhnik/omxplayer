@@ -125,8 +125,8 @@ private:
 public:
   OMXReader();
   ~OMXReader();
-  bool Open(std::string filename, bool is_url, bool dump_format, bool live, float timeout,
-    std::string cookie, std::string user_agent, std::string lavfdopts, std::string avdict,
+  bool Open(std::string &filename, bool is_url, bool dump_format, bool live, float timeout,
+    std::string &cookie, std::string &user_agent, std::string &lavfdopts, std::string &avdict,
     OMXDvdPlayer *dvd);
   void ClearStreams();
   bool Close();

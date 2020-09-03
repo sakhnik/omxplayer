@@ -933,24 +933,18 @@ unsigned int COMXAudio::AddPackets(const void* data, unsigned int len, int64_t d
       CLog::Log(LOGDEBUG, "COMXAudio::Decode ADec : setStartTime %f\n", (float)val / AV_TIME_BASE);
       m_setStartTime = false;
     }
+    else if(pts == AV_NOPTS_VALUE)
+    {
+      omx_buffer->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
+      m_last_pts = pts;
+    }
+    else if (pts > m_last_pts)
+    {
+      m_last_pts = pts;
+    }
     else
     {
-      if(pts == AV_NOPTS_VALUE)
-      {
-        omx_buffer->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
-        m_last_pts = pts;
-      }
-      else if (m_last_pts != pts)
-      {
-        if(pts > m_last_pts)
-          m_last_pts = pts;
-        else
-          omx_buffer->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
-      }
-      else if (m_last_pts == pts)
-      {
-        omx_buffer->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
-      }
+      omx_buffer->nFlags = OMX_BUFFERFLAG_TIME_UNKNOWN;
     }
 
     omx_buffer->nTimeStamp = ToOMXTime(val);

@@ -53,7 +53,6 @@ protected:
   int64_t                   m_iCurrentPts;
   pthread_cond_t            m_packet_cond;
   pthread_cond_t            m_picture_cond;
-  pthread_mutex_t           m_lock;
   pthread_mutex_t           m_lock_decoder;
   OMXClock                  *m_av_clock;
   COMXVideo                 *m_decoder;
@@ -79,7 +78,7 @@ public:
   bool Close();
   bool Reset();
   bool Decode(OMXPacket *pkt);
-  void Process();
+  void Process() override;
   void Flush();
   bool AddPacket(OMXPacket *pkt);
   bool OpenDecoder();

@@ -396,6 +396,6 @@ bool OMXPlayerVideo::IsEOS()
 {
   if(!m_decoder)
     return false;
-  return m_packets.empty() && (!m_decoder || m_decoder->IsEOS());
+  return m_packets.empty() && m_decoder->IsEOS();
 }
 

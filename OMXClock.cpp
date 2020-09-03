@@ -125,12 +125,9 @@ bool OMXClock::OMXSetReferenceClock(bool has_audio, bool lock /* = true */)
 
 bool OMXClock::OMXInitialize()
 {
-  std::string componentName = "";
-
   m_pause       = false;
 
-  componentName = "OMX.broadcom.clock";
-  if(!m_omx_clock.Initialize((const std::string)componentName, OMX_IndexParamOtherInit))
+  if(!m_omx_clock.Initialize("OMX.broadcom.clock", OMX_IndexParamOtherInit))
     return false;
 
   return true;

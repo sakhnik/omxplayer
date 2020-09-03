@@ -50,7 +50,8 @@ bool OMXDvdPlayer::Open(const std::string &filename)
 		return false;
 	}
 
-	ifo = (ifo_handle_t **)malloc((ifo_zero->vts_atrt->nr_of_vtss + 1) * sizeof(ifo_handle_t *));
+	ifo = new ifo_handle_t*[ifo_zero->vts_atrt->nr_of_vtss + 1];
+	//ifo = (ifo_handle_t **)malloc((ifo_zero->vts_atrt->nr_of_vtss + 1) * sizeof(ifo_handle_t *));
 	for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) {
 		ifo[i] = ifoOpen(dvd_device, i);
 		if ( !ifo[i] && i == 0 ) {
@@ -61,7 +62,7 @@ bool OMXDvdPlayer::Open(const std::string &filename)
 
 	// loop through title sets
 	title_count = ifo_zero->tt_srpt->nr_of_srpts;
-	titles = (title_info *)calloc(title_count, sizeof(*titles));
+	titles = new title_info[title_count];
 	for (int j=0, h=0; j < title_count; j++, h++) {
 		int title_set_nr = ifo_zero->tt_srpt->title[j].title_set_nr;
 		int vts_ttn = ifo_zero->tt_srpt->title[j].vts_ttn;
@@ -113,7 +114,7 @@ bool OMXDvdPlayer::Open(const std::string &filename)
 		titles[h].last_sector = last_sector;
 
 		// Chapters
-		titles[h].chapters = (float *)calloc(titles[h].chapter_count, sizeof(*titles[h].chapters));
+		titles[h].chapters = new float[titles[h].chapter_count];
 
 		float acc_chapter = 0;
 		for (int i=0; i<titles[h].chapter_count; i++) {
@@ -139,9 +140,7 @@ bool OMXDvdPlayer::Open(const std::string &filename)
 			if (pgc->subp_control[k] & 0x80000000)
 				titles[h].subtitle_count++;
 
-		titles[h].streams = (title_info::stream_info *)calloc(
-				titles[h].audiostream_count + titles[h].subtitle_count,
-				sizeof(*titles[h].streams));
+		titles[h].streams = new title_info::stream_info[titles[h].audiostream_count + titles[h].subtitle_count];
 		int stream_index = 0;
 
 		// Audio streams
@@ -172,7 +171,7 @@ bool OMXDvdPlayer::Open(const std::string &filename)
 
 	// close dvd meta data filehandles
 	for (int i=1; i <= ifo_zero->vts_atrt->nr_of_vtss; i++) ifoClose(ifo[i]);
-	free(ifo);
+	delete ifo;
 	ifoClose(ifo_zero);
 	m_allocated = true;
 	puts("Finished parsing DVD meta data");
@@ -337,9 +336,11 @@ OMXDvdPlayer::~OMXDvdPlayer()
 		CloseTrack();
 
 	if(m_allocated) {
-		for (int i=0; i < title_count; i++)
-			free(titles[i].chapters);
-		free(titles);
+		for (int i=0; i < title_count; i++) {
+			delete titles[i].chapters;
+			delete titles[i].streams;
+		}
+		delete titles;
 	}
 
 	if(dvd_device)

@@ -556,10 +556,10 @@ int main(int argc, char *argv[])
   TV_DISPLAY_STATE_T   tv_state;
   double last_seek_pos   = 0;
   bool idle = false;
-  std::string            m_cookie              = "";
-  std::string            m_user_agent          = "";
-  std::string            m_lavfdopts           = "";
-  std::string            m_avdict              = "";
+  std::string            m_cookie;
+  std::string            m_user_agent;
+  std::string            m_lavfdopts;
+  std::string            m_avdict;
   bool                   m_audio_extension     = false;
   int                    m_next_prev_file      = 0;
   char                   m_audio_lang[4]       = "\0";
@@ -749,7 +749,7 @@ int main(int argc, char *argv[])
           else
           {
             m_config_audio.device = str;
-            m_config_audio.subdevice = "";
+            m_config_audio.subdevice.clear();
           }
         }
         if(m_config_audio.device != "local" && m_config_audio.device != "hdmi" && m_config_audio.device != "both" &&
@@ -1153,7 +1153,7 @@ int main(int argc, char *argv[])
 
   change_track:
 
-  if(!m_omx_reader.Open(m_filename.c_str(), IsURL(m_filename), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie.c_str(), m_user_agent.c_str(), m_lavfdopts.c_str(), m_avdict.c_str(), m_DvdPlayer))
+  if(!m_omx_reader.Open(m_filename, IsURL(m_filename), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie, m_user_agent, m_lavfdopts, m_avdict, m_DvdPlayer))
     ExitGentlyOnError();
 
   if (m_dump_format_exit)
@@ -1316,7 +1316,7 @@ int main(int argc, char *argv[])
 
   m_omx_reader.GetHints(OMXSTREAM_AUDIO, m_config_audio.hints);
 
-  if (m_config_audio.device == "")
+  if (m_config_audio.device.empty())
   {
     if (m_BcmHost.vc_tv_hdmi_audio_supported(EDID_AudioFormat_ePCM, 2, EDID_AudioSampleRate_e44KHz, EDID_AudioSampleSize_16bit ) == 0)
       m_config_audio.device = "omx:hdmi";
@@ -1815,20 +1815,6 @@ int main(int argc, char *argv[])
       int64_t stamp = m_av_clock->OMXMediaTime();
       int64_t audio_pts = m_player_audio.GetCurrentPTS();
       int64_t video_pts = m_player_video.GetCurrentPTS();
-
-      if (0 && m_av_clock->OMXIsPaused())
-      {
-        int64_t old_stamp = stamp;
-        if (audio_pts != AV_NOPTS_VALUE && (stamp == 0 || audio_pts < stamp))
-          stamp = audio_pts;
-        if (video_pts != AV_NOPTS_VALUE && (stamp == 0 || video_pts < stamp))
-          stamp = video_pts;
-        if (old_stamp != stamp)
-        {
-          m_av_clock->OMXMediaTime(stamp);
-          stamp = m_av_clock->OMXMediaTime();
-        }
-      }
 
       float audio_fifo = audio_pts == AV_NOPTS_VALUE ? 0.0f : (audio_pts - stamp) * 1e-6;
       float video_fifo = video_pts == AV_NOPTS_VALUE ? 0.0f : (video_pts - stamp) * 1e-6;

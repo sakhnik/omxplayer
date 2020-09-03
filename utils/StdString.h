@@ -72,7 +72,7 @@
 //      - Jim Cline
 //      - Jeff Kohn
 //      - Todd Heckel
-//      - Ullrich Poll�hne
+//      - Ullrich Pollähne
 //      - Joe Vitaterna
 //      - Joe Woodbury
 //      - Aaron (no last name)
@@ -862,14 +862,13 @@ inline const Type& SSMAX(const Type& arg1, const Type& arg2)
     {
       PCSTR pNextSrcA      = pSrcA;
       PWSTR pNextDstW      = pDstW;
-      SSCodeCvt::result res  = SSCodeCvt::ok;
       const SSCodeCvt& conv  = SS_USE_FACET(loc, SSCodeCvt);
 #if defined(TARGET_DARWIN)
       SSCodeCvt::state_type st= { { 0 } };
 #else
       SSCodeCvt::state_type st= { 0 };
 #endif
-      res            = conv.in(st,
+      SSCodeCvt::result res = conv.in(st,
                     pSrcA, pSrcA + nSrc, pNextSrcA,
                     pDstW, pDstW + nDst, pNextDstW);
 #ifdef TARGET_LINUX
@@ -909,14 +908,13 @@ inline const Type& SSMAX(const Type& arg1, const Type& arg2)
     {
       PSTR pNextDstA      = pDstA;
       PCWSTR pNextSrcW    = pSrcW;
-      SSCodeCvt::result res  = SSCodeCvt::ok;
       const SSCodeCvt& conv  = SS_USE_FACET(loc, SSCodeCvt);
 #if defined(TARGET_DARWIN)
       SSCodeCvt::state_type st= { { 0 } };
 #else
       SSCodeCvt::state_type st= { 0 };
 #endif
-      res            = conv.out(st,
+      SSCodeCvt::result res = conv.out(st,
                     pSrcW, pSrcW + nSrc, pNextSrcW,
                     pDstA, pDstA + nDst, pNextDstA);
 #ifdef TARGET_LINUX
@@ -2055,8 +2053,6 @@ public:
 
   bool TryLoad(const void* pT)
   {
-    bool bLoaded = false;
-
 #if defined(SS_WIN32) && !defined(SS_ANSI)
     if ( ( pT != NULL ) && SS_IS_INTRESOURCE(pT) )
     {
@@ -2065,11 +2061,11 @@ public:
       {
         TRACE(_T("Can't load string %u\n"), SSRES(pT));
       }
-      bLoaded = true;
+      return true;
     }
 #endif
 
-    return bLoaded;
+    return false;
   }
 
 
@@ -3291,6 +3287,7 @@ public:
              reinterpret_cast<PMYSTR>(&szTemp), 0, &argList) == 0 ||
        szTemp == 0 )
     {
+      va_end(argList);
       throw std::runtime_error("out of memory");
     }
     *this = szTemp;
@@ -3310,6 +3307,7 @@ public:
              reinterpret_cast<PMYSTR>(&szTemp), 0, &argList) == 0 ||
       szTemp == 0)
     {
+      va_end(argList);
       throw std::runtime_error("out of memory");
     }
     *this = szTemp;
@@ -3455,7 +3453,7 @@ public:
   {
     int nReplaced  = 0;
 
-    for ( MYITER iter=this->begin(); iter != this->end(); iter++ )
+    for ( MYITER iter=this->begin(); iter != this->end(); ++iter )
     {
       if ( *iter == chOld )
       {

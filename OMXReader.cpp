@@ -68,7 +68,6 @@ OMXPacket::~OMXPacket()
 OMXReader::OMXReader()
 {
   m_open        = false;
-  m_filename    = "";
   m_bMatroska   = false;
   m_bAVI        = false;
   g_abort       = false;
@@ -181,15 +180,15 @@ static offset_t dvdread_file_seek(void *h, offset_t pos, int whence)
 }
 
 bool OMXReader::Open(
-	std::string filename,
+	std::string &filename,
 	bool is_url,
 	bool dump_format,
 	bool live,
 	float timeout,
-	std::string cookie,
-	std::string user_agent,
-	std::string lavfdopts,
-	std::string avdict,
+	std::string &cookie,
+	std::string &user_agent,
+	std::string &lavfdopts,
+	std::string &avdict,
 	OMXDvdPlayer *dvd)
 {
   if (!m_dllAvUtil.Load() || !m_dllAvCodec.Load() || !m_dllAvFormat.Load())
@@ -251,7 +250,7 @@ bool OMXReader::Open(
     CLog::Log(LOGDEBUG, "COMXPlayer::OpenFile - open dvd %s ", m_filename.c_str());
 
     buffer = (unsigned char*)m_dllAvUtil.av_malloc(FFMPEG_FILE_BUFFER_SIZE);
-    m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, &*m_DvdPlayer, dvdread_file_read, NULL, dvdread_file_seek);
+    m_ioContext = m_dllAvFormat.avio_alloc_context(buffer, FFMPEG_FILE_BUFFER_SIZE, 0, m_DvdPlayer, dvdread_file_read, NULL, dvdread_file_seek);
 
     m_dllAvFormat.av_probe_input_buffer(m_ioContext, &iformat, NULL, NULL, 0, 0);
 
@@ -421,8 +420,8 @@ void OMXReader::ClearStreams()
       free(m_streams[i].extradata);
 
     memset(m_streams[i].language, 0, sizeof(m_streams[i].language));
-    m_streams[i].codec_name = "";
-    m_streams[i].name       = "";
+    m_streams[i].codec_name.clear();
+    m_streams[i].name.clear();
     m_streams[i].type       = OMXSTREAM_NONE;
     m_streams[i].stream     = NULL;
     m_streams[i].extradata  = NULL;
@@ -469,7 +468,7 @@ bool OMXReader::Close()
   m_dllAvFormat.Unload();
 
   m_open            = false;
-  m_filename        = "";
+  m_filename.clear();
   m_bMatroska       = false;
   m_bAVI            = false;
   m_video_count     = 0;
@@ -642,8 +641,7 @@ OMXPacket *OMXReader::Read()
       pStream->duration = duration;
       duration = m_dllAvUtil.av_rescale_rnd(pStream->duration, (int64_t)pStream->time_base.num * AV_TIME_BASE, 
                                             pStream->time_base.den, AV_ROUND_NEAR_INF);
-      if ((m_pFormatContext->duration == AV_NOPTS_VALUE)
-          ||  (m_pFormatContext->duration != AV_NOPTS_VALUE && duration > m_pFormatContext->duration))
+      if (m_pFormatContext->duration == AV_NOPTS_VALUE || duration > m_pFormatContext->duration)
         m_pFormatContext->duration = duration;
     }
   }
@@ -716,8 +714,7 @@ bool OMXReader::GetStreams(bool dump_format)
   if(m_subtitle_count)
     SetActiveStreamInternal(OMXSTREAM_SUBTITLE, 0);
 
-  int i = 0;
-  for(i = 0; i < MAX_OMX_CHAPTERS; i++)
+  for(int i = 0; i < MAX_OMX_CHAPTERS; i++)
   {
     m_chapters[i] = 0;
   }
@@ -727,14 +724,14 @@ bool OMXReader::GetStreams(bool dump_format)
   if(m_DvdPlayer)
   {
     m_chapter_count = (m_DvdPlayer->TotalChapters() > MAX_OMX_CHAPTERS) ? MAX_OMX_CHAPTERS : m_DvdPlayer->TotalChapters();
-    for(i = 0; i < m_chapter_count; i++)
+    for(int i = 0; i < m_chapter_count; i++)
       m_chapters[i]   = m_DvdPlayer->GetChapterStartTime(i);
   }
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
   else if(m_video_index != -1)
   {
-#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(52,14,0)
     m_chapter_count = (m_pFormatContext->nb_chapters > MAX_OMX_CHAPTERS) ? MAX_OMX_CHAPTERS : m_pFormatContext->nb_chapters;
-    for(i = 0; i < m_chapter_count; i++)
+    for(int i = 0; i < m_chapter_count; i++)
     {
       AVChapter *chapter = m_pFormatContext->chapters[i];
       if(!chapter)
@@ -1180,7 +1177,7 @@ double OMXReader::NormalizeFrameduration(double frameduration)
 
 std::string OMXReader::GetStreamCodecName(AVStream *stream)
 {
-  std::string strStreamName = "";
+  std::string strStreamName;
 
   if(!stream)
     return strStreamName;
@@ -1253,7 +1250,7 @@ std::string OMXReader::GetCodecName(OMXStreamType type)
 
 std::string OMXReader::GetCodecName(OMXStreamType type, unsigned int index)
 {
-  std::string strStreamName = "";
+  std::string strStreamName;
 
   for(int i = 0; i < MAX_STREAMS; i++)
   {
@@ -1269,7 +1266,7 @@ std::string OMXReader::GetCodecName(OMXStreamType type, unsigned int index)
 
 std::string OMXReader::GetStreamLanguage(OMXStreamType type, unsigned int index)
 {
-  std::string language = "";
+  std::string language;
 
   for(int i = 0; i < MAX_STREAMS; i++)
   {
@@ -1298,7 +1295,7 @@ int OMXReader::GetStreamByLanguage(OMXStreamType type, const char *lang)
 
 std::string OMXReader::GetStreamName(OMXStreamType type, unsigned int index)
 {
-  std::string name = "";
+  std::string name;
 
   for(int i = 0; i < MAX_STREAMS; i++)
   {

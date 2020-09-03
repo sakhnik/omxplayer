@@ -1526,7 +1526,7 @@ bool COMXCoreComponent::Deinitialize()
 
     m_input_port      = 0;
     m_output_port     = 0;
-    m_componentName   = "";
+    m_componentName.clear();
     m_resource_error  = false;
   }
 

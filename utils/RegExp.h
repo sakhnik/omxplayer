@@ -66,7 +66,7 @@ public:
   const std::string& GetPattern() { return m_pattern; }
   bool GetNamedSubPattern(const char* strName, std::string& strMatch);
   void DumpOvector(int iLog);
-  const CRegExp& operator= (const CRegExp& re);
+  CRegExp& operator= (const CRegExp& re);
 
 private:
   void Cleanup() { if (m_re) { PCRE::pcre_free(m_re); m_re = NULL; } }

@@ -183,7 +183,7 @@ bool COMXVideo::PortSettingsChanged()
   OMX_CONFIG_INTERLACETYPE interlace;
   OMX_INIT_STRUCTURE(interlace);
   interlace.nPortIndex = m_omx_decoder.GetOutputPort();
-  omx_err = m_omx_decoder.GetConfig(OMX_IndexConfigCommonInterlace, &interlace);
+  m_omx_decoder.GetConfig(OMX_IndexConfigCommonInterlace, &interlace);
 
   if(m_config.deinterlace == VS_DEINTERLACEMODE_FORCE)
     m_deinterlace = true;
@@ -380,7 +380,7 @@ bool COMXVideo::Open(OMXClock *clock, const OMXVideoConfig &config)
 
   m_config = config;
 
-  m_video_codec_name      = "";
+  m_video_codec_name.clear();
   m_codingType            = OMX_VIDEO_CodingUnused;
 
   m_submitted_eos = false;
@@ -696,7 +696,7 @@ void COMXVideo::Close()
 
   m_is_open       = false;
 
-  m_video_codec_name  = "";
+  m_video_codec_name.clear();
   m_deinterlace       = false;
   m_config.anaglyph          = OMX_ImageFilterAnaglyphNone;
   m_av_clock          = NULL;

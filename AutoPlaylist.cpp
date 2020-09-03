@@ -34,7 +34,7 @@ void AutoPlaylist::readPlaylist(string &filename)
 	// reset object
 	playlist_pos = -1;
 	playlist.clear();
-	dirname = "";
+	dirname.clear();
 
     int pos = filename.find_last_of('/');
     dirname = filename.substr(0, pos+1); // including trailing slash
