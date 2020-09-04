@@ -19,7 +19,10 @@
  *
  */
 
-#include "system.h"
+#include <time.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+
 #include "log.h"
 #include "stdio_utf8.h"
 #include "stat_utf8.h"
@@ -57,7 +60,7 @@ void CLog::Log(int loglevel, const char *format, ... )
 {
   pthread_mutex_lock(&m_log_mutex);
 
-  static const char* prefixFormat = "%02.2d:%02.2d:%02.2d T:%" PRIu64 " %7s: ";
+  static const char* prefixFormat = "%02.2d:%02.2d:%02.2d T:%llu %7s: ";
 #if !(defined(_DEBUG) || defined(PROFILE))
   if (m_logLevel > LOG_LEVEL_NORMAL ||
      (m_logLevel > LOG_LEVEL_NONE && loglevel >= LOGNOTICE))
@@ -71,10 +74,7 @@ void CLog::Log(int loglevel, const char *format, ... )
 
     struct timeval now;
     gettimeofday(&now, NULL);
-    SYSTEMTIME time;
-    time.wHour=(now.tv_sec/3600) % 24;
-    time.wMinute=(now.tv_sec/60) % 60;
-    time.wSecond=now.tv_sec % 60;
+    struct tm *time = localtime( &now.tv_sec );
     uint64_t stamp = now.tv_usec + now.tv_sec * 1000000;
     CStdString strPrefix, strData;
 
@@ -93,9 +93,9 @@ void CLog::Log(int loglevel, const char *format, ... )
     else if (m_repeatCount)
     {
       CStdString strData2;
-      strPrefix.Format(prefixFormat, time.wHour, time.wMinute, time.wSecond, stamp, levelNames[m_repeatLogLevel]);
+      strPrefix.Format(prefixFormat, time->tm_hour, time->tm_min, time->tm_sec, stamp, levelNames[m_repeatLogLevel]);
 
-      strData2.Format("Previous line repeats %d times." LINE_ENDING, m_repeatCount);
+      strData2.Format("Previous line repeats %d times.\n", m_repeatCount);
       fputs(strPrefix.c_str(), m_file);
       fputs(strData2.c_str(), m_file);
       OutputDebugString(strData2);
@@ -123,10 +123,10 @@ void CLog::Log(int loglevel, const char *format, ... )
     OutputDebugString(strData);
 
     /* fixup newline alignment, number of spaces should equal prefix length */
-    strData.Replace("\n", LINE_ENDING"                                            ");
-    strData += LINE_ENDING;
+    strData.Replace("\n", "\n                                            ");
+    strData += "\n";
 
-    strPrefix.Format(prefixFormat, time.wHour, time.wMinute, time.wSecond, stamp, levelNames[loglevel]);
+    strPrefix.Format(prefixFormat, time->tm_hour, time->tm_min, time->tm_sec, stamp, levelNames[loglevel]);
 
     fputs(strPrefix.c_str(), m_file);
     fputs(strData.c_str(), m_file);

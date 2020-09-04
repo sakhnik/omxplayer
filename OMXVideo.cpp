@@ -19,12 +19,6 @@
  *
  */
 
-#if (defined HAVE_CONFIG_H) && (!defined WIN32)
-  #include "config.h"
-#elif defined(_WIN32)
-#include "system.h"
-#endif
-
 #include "OMXVideo.h"
 
 #include "OMXStreamInfo.h"
@@ -585,10 +579,8 @@ bool COMXVideo::Open(OMXClock *clock, const OMXVideoConfig &config)
 
   OMX_PARAM_BRCMVIDEODECODEERRORCONCEALMENTTYPE concanParam;
   OMX_INIT_STRUCTURE(concanParam);
-  if(1)
-    concanParam.bStartWithValidFrame = OMX_TRUE;
-  else
-    concanParam.bStartWithValidFrame = OMX_FALSE;
+
+  concanParam.bStartWithValidFrame = OMX_TRUE;
 
   omx_err = m_omx_decoder.SetParameter(OMX_IndexParamBrcmVideoDecodeErrorConcealment, &concanParam);
   if(omx_err != OMX_ErrorNone)
