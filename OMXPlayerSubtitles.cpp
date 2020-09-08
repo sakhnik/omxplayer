@@ -43,10 +43,7 @@ OMXPlayerSubtitles::OMXPlayerSubtitles() BOOST_NOEXCEPT
   m_centered(),
   m_ghost_box(),
   m_lines(),
-  m_av_clock(),
-#ifndef NDEBUG
-  m_open()
-#endif
+  m_av_clock()
 {}
 
 OMXPlayerSubtitles::~OMXPlayerSubtitles() BOOST_NOEXCEPT
@@ -54,24 +51,14 @@ OMXPlayerSubtitles::~OMXPlayerSubtitles() BOOST_NOEXCEPT
   Close();
 }
 
-bool OMXPlayerSubtitles::Open(size_t stream_count,
-                              int display,
+bool OMXPlayerSubtitles::Init(int display,
                               int layer,
                               float font_size,
                               bool centered,
                               bool ghost_box,
                               unsigned int lines,
-                              vector<Subtitle>&& external_subtitles,
-                              Dimension video,
-                              float video_aspect,
-                              int aspect_mode,
                               OMXClock* clock) BOOST_NOEXCEPT
 {
-  assert(!m_open);
-
-  m_subtitle_buffers.resize(stream_count, circular_buffer<Subtitle>(32));
-  m_external_subtitles = std::move(external_subtitles);
-  
   m_visible = true;
   m_use_external_subtitles = true;
   m_active_index = 0;
@@ -86,29 +73,44 @@ bool OMXPlayerSubtitles::Open(size_t stream_count,
   m_display = display;
   m_layer = layer;
 
-  m_video.width = video.width;
-  m_video.height = video.height;
-  m_video_aspect = video_aspect;
-  m_aspect_mode = aspect_mode;
-
   if(!Create())
     return false;
 
+  return true;
+}
+
+
+bool OMXPlayerSubtitles::Open(size_t stream_count,
+                              vector<Subtitle>&& external_subtitles) BOOST_NOEXCEPT
+{
+  m_subtitle_buffers.resize(stream_count, circular_buffer<Subtitle>(32));
+  m_external_subtitles = std::move(external_subtitles);
+
   SendToRenderer(Message::Flush{m_external_subtitles});
+
+  return true;
+}
+
+bool OMXPlayerSubtitles::initDVDSubs(Dimension video,
+                              float video_aspect,
+                              int aspect_mode) BOOST_NOEXCEPT
+{
+  SendToRenderer(Message::DVDSubs{video, video_aspect, aspect_mode});
 
   AVCodec *dvd_codec = m_dllAvCodec.avcodec_find_decoder(AV_CODEC_ID_DVD_SUBTITLE);
   m_dvd_codec_context = m_dllAvCodec.avcodec_alloc_context3(dvd_codec);
-  // m_dvd_codec_context->sample_aspect_ratio = { 64, 45 };
   m_dllAvCodec.avcodec_open2(m_dvd_codec_context, dvd_codec, NULL);
-
-#ifndef NDEBUG
-  m_open = true;
-#endif
 
   return true;
 }
 
 void OMXPlayerSubtitles::Close() BOOST_NOEXCEPT
+{
+  m_mailbox.clear();
+  m_subtitle_buffers.clear();
+}
+
+void OMXPlayerSubtitles::DeInit() BOOST_NOEXCEPT
 {
   if(Running())
   {
@@ -116,15 +118,8 @@ void OMXPlayerSubtitles::Close() BOOST_NOEXCEPT
     StopThread();
   }
 
-  m_mailbox.clear();
-  m_subtitle_buffers.clear();
-
   if(m_dvd_codec_context)
     avcodec_free_context(&m_dvd_codec_context);
-
-#ifndef NDEBUG
-  m_open = false;
-#endif
 }
 
 void OMXPlayerSubtitles::Process()
@@ -133,9 +128,6 @@ void OMXPlayerSubtitles::Process()
   {
     RenderLoop(m_font_size, m_centered,
                m_ghost_box, m_lines,
-               m_video,
-               m_video_aspect,
-               m_aspect_mode,
                m_av_clock);
   }
   catch(Enforce_error& e)
@@ -165,19 +157,13 @@ RenderLoop(float font_size,
            bool centered,
            bool ghost_box,
            unsigned int lines,
-           Dimension video,
-           float video_aspect,
-           int aspect_mode,
            OMXClock* clock)
 {
   SubtitleRenderer renderer(m_display, m_layer,
                             font_size,
                             centered,
                             ghost_box,
-                            lines,
-                            video,
-                            video_aspect,
-                            aspect_mode);
+                            lines);
 
   vector<Subtitle> subtitles;
 
@@ -257,6 +243,14 @@ RenderLoop(float font_size,
     }
 
     m_mailbox.receive_wait(chrono::milliseconds(timeout),
+      [&](Message::DVDSubs&& args)
+      {
+        renderer.initDVDSubs(
+          args.video,
+          args.video_aspect,
+          args.aspect_mode
+        );
+      },
       [&](Message::Push&& args)
       {
         subtitles.push_back(std::move(args.subtitle));
@@ -354,8 +348,6 @@ void OMXPlayerSubtitles::FlushRenderer()
 
 void OMXPlayerSubtitles::Flush() BOOST_NOEXCEPT
 {
-  assert(m_open);
-
   for(auto& q : m_subtitle_buffers)
     q.clear();
 
@@ -370,19 +362,16 @@ void OMXPlayerSubtitles::Flush() BOOST_NOEXCEPT
 
 void OMXPlayerSubtitles::Resume() BOOST_NOEXCEPT
 {
-  assert(m_open);
   SendToRenderer(Message::SetPaused{false});
 }
 
 void OMXPlayerSubtitles::Pause() BOOST_NOEXCEPT
 {
-  assert(m_open);
   SendToRenderer(Message::SetPaused{true});
 }
 
 void OMXPlayerSubtitles::SetUseExternalSubtitles(bool use) BOOST_NOEXCEPT
 {
-  assert(m_open);
   assert(use || !m_subtitle_buffers.empty());
 
   m_use_external_subtitles = use;
@@ -392,16 +381,12 @@ void OMXPlayerSubtitles::SetUseExternalSubtitles(bool use) BOOST_NOEXCEPT
 
 void OMXPlayerSubtitles::SetDelay(int value) BOOST_NOEXCEPT
 {
-  assert(m_open);
-
   m_delay = value;
   SendToRenderer(Message::SetDelay{value});
 }
 
 void OMXPlayerSubtitles::SetVisible(bool visible) BOOST_NOEXCEPT
 {
-  assert(m_open);
-
   if(visible)
   {
     if (!m_visible)
@@ -422,7 +407,6 @@ void OMXPlayerSubtitles::SetVisible(bool visible) BOOST_NOEXCEPT
 
 void OMXPlayerSubtitles::SetActiveStream(size_t index) BOOST_NOEXCEPT
 {
-  assert(m_open);
   assert(index < m_subtitle_buffers.size());
 
   m_active_index = index;
@@ -506,7 +490,6 @@ bool OMXPlayerSubtitles::GetImageData(OMXPacket *pkt, Subtitle &sub)
 
 bool OMXPlayerSubtitles::AddPacket(OMXPacket *pkt, size_t stream_index) BOOST_NOEXCEPT
 {
-  assert(m_open);
   assert(stream_index < m_subtitle_buffers.size());
 
   if(!pkt)

@@ -40,21 +40,23 @@ public:
   OMXPlayerSubtitles() BOOST_NOEXCEPT;
   ~OMXPlayerSubtitles() BOOST_NOEXCEPT;
 
-
-  bool Open(size_t stream_count,
-            int display,
+  bool Init(int display,
             int layer,
             float font_size,
             bool centered,
             bool ghost_box,
             unsigned int lines,
-            vector<Subtitle>&& external_subtitles,
-            Dimension video,
-            float video_aspect,
-            int aspect_mode,
             OMXClock* clock) BOOST_NOEXCEPT;
 
+  bool Open(size_t stream_count,
+            vector<Subtitle>&& external_subtitles) BOOST_NOEXCEPT;
+
+  bool initDVDSubs(Dimension video,
+            float video_aspect,
+            int aspect_mode) BOOST_NOEXCEPT;
+
   void Close() BOOST_NOEXCEPT;
+  void DeInit() BOOST_NOEXCEPT;
   void Flush() BOOST_NOEXCEPT;
   void Resume() BOOST_NOEXCEPT;
   void Pause() BOOST_NOEXCEPT;
@@ -63,7 +65,6 @@ public:
 
   bool GetVisible() BOOST_NOEXCEPT
   {
-    assert(m_open);
     return m_visible;
   }
   
@@ -71,7 +72,6 @@ public:
 
   size_t GetActiveStream() BOOST_NOEXCEPT
   {
-    assert(m_open);
     assert(!m_subtitle_buffers.empty());
     return m_active_index;
   }
@@ -80,7 +80,6 @@ public:
 
   int GetDelay() BOOST_NOEXCEPT
   {
-    assert(m_open);
     return m_delay;
   }
 
@@ -88,7 +87,6 @@ public:
 
   bool GetUseExternalSubtitles() BOOST_NOEXCEPT
   {
-    assert(m_open);
     return m_use_external_subtitles;
   }
 
@@ -102,6 +100,12 @@ protected:
 
 private:
   struct Message {
+    struct DVDSubs
+    {
+      Dimension video;
+      float video_aspect;
+      int aspect_mode;
+    };
     struct Stop {};
     struct Flush
     {
@@ -143,9 +147,6 @@ private:
                   bool centered,
                   bool ghost_box,
                   unsigned int lines,
-                  Dimension video,
-                  float video_aspect,
-                  int aspect_mode,
                   OMXClock* clock);
   bool GetTextLines(OMXPacket *pkt, Subtitle &sub);
   bool GetImageData(OMXPacket *pkt, Subtitle &sub);
@@ -153,7 +154,8 @@ private:
 
   std::vector<Subtitle>                         m_external_subtitles;
   std::vector<boost::circular_buffer<Subtitle>> m_subtitle_buffers;
-  Mailbox<Message::Stop,
+  Mailbox<Message::DVDSubs,
+          Message::Stop,
           Message::Flush,
           Message::Push,
           Message::Touch,
@@ -172,11 +174,4 @@ private:
   OMXClock*                                     m_av_clock;
   int                                           m_display;
   int                                           m_layer;
-  Dimension                                     m_video;
-  float                                         m_video_aspect;
-  int                                           m_aspect_mode;
-
-#ifndef NDEBUG
-  bool m_open;
-#endif
 };

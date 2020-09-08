@@ -151,13 +151,9 @@ void print_version()
 
 // Exit macros for main function
 #define ExitGently() { g_abort = true; goto do_exit; }
-#define ExitGentlyOnError() { \
-	printf("Exiting on error: omxplayer.cpp line: %d\n", __LINE__); \
-	m_exit_with_error = true; \
-	ExitGently(); \
-}
+#define ExitGentlyOnError() ExitGentlyWithMessage("Error: omxplayer.cpp line: " + to_string(__LINE__))
 #define ExitGentlyWithMessage(msg) { \
-	puts(msg); \
+	user_message(msg, true); \
 	m_exit_with_error = true; \
 	ExitGently(); \
 }
@@ -475,10 +471,16 @@ static int get_mem_gpu(void)
    return gpu_mem;
 }
 
-void user_message(std::string msg)
+void user_message(const std::string &msg, bool sleep = false)
 {
 	puts(msg.c_str());
-	DISPLAY_TEXT_SHORT(msg);
+	if(m_osd)
+	{
+	  m_player_subtitles.DisplayText(msg, 1000);
+
+	  // useful when we want to display some osd before exiting the program
+	  if(sleep) m_av_clock->OMXSleep(5000);
+	}
 }
 
 static void blank_background(uint32_t rgba)
@@ -968,24 +970,61 @@ int main(int argc, char *argv[])
     }
   }
 
-  // Build default keymap
-  if(keymap.empty())
-    KeyConfig::buildDefaultKeymap(keymap);
-
   if (optind >= argc) {
     print_usage();
     return EXIT_SUCCESS;
   }
 
+  if(m_gen_log) {
+    CLog::SetLogLevel(LOG_LEVEL_DEBUG);
+    CLog::Init("./");
+  } else {
+    CLog::SetLogLevel(LOG_LEVEL_NONE);
+  }
+
+  // start the clock
+  m_av_clock = new OMXClock();
+
+  g_RBP.Initialize();
+  g_OMX.Initialize();
+
+  blank_background(m_blank_background);
+
+  // init subtitle object
+  if(!m_player_subtitles.Init(m_config_video.display,
+                                m_config_video.layer,
+                                m_font_size,
+                                m_centered,
+                                m_ghost_box,
+                                m_subtitle_lines,
+                                m_av_clock))
+  {
+    m_av_clock->OMXStop();
+    m_av_clock->OMXStateIdle();
+    g_RBP.Deinitialize();
+    g_OMX.Deinitialize();
+    return EXIT_FAILURE;
+  }
+
+  // Build default keymap
+  if(keymap.empty())
+    KeyConfig::buildDefaultKeymap(keymap);
+
+  // get filename
   m_filename = argv[optind];
 
   // strip off file://
   if(m_filename.substr(0, 7) == "file://" )
     m_filename.replace(0, 7, "");
 
-  auto ExitFileNotFound = [](const std::string& path)
+  auto ExitFileNotFound = [&](const std::string& path)
   {
-    printf("File \"%s\" not found or cannot be read.\n", path.c_str());
+    user_message(strprintf("File \"%s\" not found.", path.c_str()), true);
+    m_player_subtitles.DeInit();
+    m_av_clock->OMXStop();
+    m_av_clock->OMXStateIdle();
+    g_RBP.Deinitialize();
+    g_OMX.Deinitialize();
     return EXIT_FAILURE;
   };
 
@@ -999,11 +1038,7 @@ int main(int argc, char *argv[])
     // get realpath for file
     char *fp;
     fp = realpath(m_filename.c_str(), NULL);
-    if(fp == NULL)
-    {
-      printf("Failed to get realpath for \"%s\".\n", m_filename.c_str());
-      return EXIT_FAILURE;
-    }
+    assert(fp != NULL);
     m_filename = fp;
     free(fp);
 
@@ -1060,24 +1095,11 @@ int main(int argc, char *argv[])
 
   DISPLAY_TEXT_LONG("Loading...");
 
-  if(m_gen_log) {
-    CLog::SetLogLevel(LOG_LEVEL_DEBUG);
-    CLog::Init("./");
-  } else {
-    CLog::SetLogLevel(LOG_LEVEL_NONE);
-  }
-
-  g_RBP.Initialize();
-  g_OMX.Initialize();
-
-  blank_background(m_blank_background);
-
   int gpu_mem = get_mem_gpu();
   int min_gpu_mem = 64;
   if (gpu_mem > 0 && gpu_mem < min_gpu_mem)
     printf("Only %dM of gpu_mem is configured. Try running \"sudo raspi-config\" and ensure that \"memory_split\" has a value of %d or greater\n", gpu_mem, min_gpu_mem);
 
-  m_av_clock = new OMXClock();
   int control_err = m_omxcontrol.init(
     m_av_clock,
     &m_player_audio,
@@ -1154,7 +1176,7 @@ int main(int argc, char *argv[])
   change_track:
 
   if(!m_omx_reader.Open(m_filename, IsURL(m_filename), m_dump_format, m_config_audio.is_live, m_timeout, m_cookie, m_user_agent, m_lavfdopts, m_avdict, m_DvdPlayer))
-    ExitGentlyOnError();
+    ExitGentlyWithMessage("File read error or format not supported");
 
   if (m_dump_format_exit)
     ExitGently();
@@ -1277,23 +1299,16 @@ int main(int argc, char *argv[])
        ExitGentlyWithMessage("Unable to read the subtitle file");
 
     if(!m_player_subtitles.Open(m_omx_reader.SubtitleStreamCount(),
-                                m_config_video.display,
-                                m_config_video.layer,
-
-                                // text subtitles
-                                m_font_size,
-                                m_centered,
-                                m_ghost_box,
-                                m_subtitle_lines,
-                                std::move(external_subtitles),
-
-                                // image subtitles
-                                {m_config_video.hints.width, m_config_video.hints.height},
-                                m_config_video.hints.aspect,
-                                m_config_video.aspectMode,
-
-                                m_av_clock))
+                                std::move(external_subtitles)))
       ExitGentlyOnError();
+
+    if(m_is_dvd)
+    {
+      if(!m_player_subtitles.initDVDSubs({m_config_video.hints.width, m_config_video.hints.height},
+                                m_config_video.hints.aspect,
+                                m_config_video.aspectMode))
+      ExitGentlyOnError();
+    }
   }
 
   if(m_has_subtitle)
@@ -2070,6 +2085,7 @@ do_exit:
     m_BcmHost.vc_tv_hdmi_power_on_explicit_new(HDMI_MODE_HDMI, (HDMI_RES_GROUP_T)tv_state.display.hdmi.group, tv_state.display.hdmi.mode);
   }
 
+  m_player_subtitles.DeInit();
   m_av_clock->OMXStop();
   m_av_clock->OMXStateIdle();
 

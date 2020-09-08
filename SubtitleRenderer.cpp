@@ -32,8 +32,7 @@
 using namespace std;
 
 SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_size,
-	bool centered, bool box_opacity, unsigned int lines, Dimension video,
-	float video_aspect_ratio, int aspect_mode)
+	bool centered, bool box_opacity, unsigned int lines)
 : m_centered(centered),
   m_ghost_box(box_opacity),
   m_max_lines(lines)
@@ -120,10 +119,19 @@ SubtitleRenderer::SubtitleRenderer(int display_num, int layer_num, float r_font_
 	cairo_font_face_destroy(normal_font);
 	cairo_font_face_destroy(italic_font);
 	cairo_font_face_destroy(bold_font);
-
+}
 	/*    *    *    *    *    *    *    *    *    *    *    *
 	 *            Set up layer for DVD subtitles            *
 	 *    *    *    *    *    *    *    *    *    *    *    */
+
+void SubtitleRenderer::initDVDSubs(Dimension video, float video_aspect_ratio,
+		int aspect_mode)
+{
+	if(dvdSubLayer)
+		delete dvdSubLayer;
+
+	// Determine screen size
+	Dimension screen = DispmanxLayer::getScreenDimensions();
 
 	// Calculate position of view port
 	Rectangle view_port {.width = screen.width, .height = screen.height};
@@ -360,7 +368,7 @@ void SubtitleRenderer::show_next()
 		dvdSubLayer->setImageData(other_image_data);
 		unprepare();
 	} else if(m_prepared_from_text) {
-		dvdSubLayer->hideElement();
+		if(dvdSubLayer) dvdSubLayer->hideElement();
 		subtitleLayer->setImageData(cairo_image_data);
 		unprepare();
 	}
@@ -369,7 +377,7 @@ void SubtitleRenderer::show_next()
 void SubtitleRenderer::hide()
 {
 	subtitleLayer->hideElement();
-	dvdSubLayer->hideElement();
+	if(dvdSubLayer) dvdSubLayer->hideElement();
 }
 
 void SubtitleRenderer::unprepare()
@@ -464,7 +472,7 @@ SubtitleRenderer::~SubtitleRenderer()
 
 	// remove DispmanX layer
 	delete subtitleLayer;
-	delete dvdSubLayer;
+	if(dvdSubLayer) delete dvdSubLayer;
 	DispmanxLayer::closeDisplay();
 
 	// destroy cairo fonts

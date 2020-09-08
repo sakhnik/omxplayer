@@ -38,10 +38,10 @@ class SubtitleRenderer {
 						float r_font_size,
 						bool centered,
 						bool box_opacity,
-						unsigned int lines,
-						Dimension video,
-						float video_aspect,
-						int aspect_mode);
+						unsigned int lines);
+
+		void initDVDSubs(Dimension video, float video_aspect_ratio,
+				int aspect_mode);
 
 		~SubtitleRenderer();
 
