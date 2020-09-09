@@ -112,7 +112,7 @@ int               m_tv_show_info        = 0;
 bool              m_has_video           = false;
 bool              m_has_audio           = false;
 bool              m_has_subtitle        = false;
-bool              m_gen_log             = false;
+char              *m_gen_log;
 bool              m_loop                = false;
 RecentFileStore   m_file_store;
 RecentDVDStore    m_dvd_store;
@@ -310,10 +310,8 @@ void SetVideoMode(int width, int height, int fpsrate, int fpsscale, FORMAT_3D_T 
     num_modes = m_BcmHost.vc_tv_hdmi_get_supported_modes_new(group,
         supported_modes, max_supported_modes, &prefer_group, &prefer_mode);
 
-    if(m_gen_log) {
     CLog::Log(LOGDEBUG, "EGL get supported modes (%d) = %d, prefer_group=%x, prefer_mode=%x\n",
         group, num_modes, prefer_group, prefer_mode);
-    }
   }
 
   TV_SUPPORTED_MODE_NEW_T *tv_found = NULL;
@@ -629,7 +627,7 @@ int main(int argc, char *argv[])
     { "hdmiclocksync", no_argument,       NULL,          'y' },
     { "nohdmiclocksync", no_argument,     NULL,          'z' },
     { "refresh",      no_argument,        NULL,          'r' },
-    { "genlog",       no_argument,        NULL,          'g' },
+    { "genlog",       optional_argument,  NULL,          'g' },
     { "sid",          required_argument,  NULL,          't' },
     { "pos",          required_argument,  NULL,          'l' },    
     { "blank",        optional_argument,  NULL,          'b' },
@@ -688,7 +686,9 @@ int main(int argc, char *argv[])
         m_refresh = true;
         break;
       case 'g':
-        m_gen_log = true;
+        m_gen_log = (char *)malloc(strlen(optarg) + 1);
+        if(optarg) strcpy(m_gen_log, optarg);
+        else strcpy(m_gen_log, "./omxplayer.log");
         break;
       case 'y':
         m_config_video.hdmi_clock_sync = true;
@@ -975,12 +975,14 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
   }
 
-  if(m_gen_log) {
-    CLog::SetLogLevel(LOG_LEVEL_DEBUG);
-    CLog::Init("./");
-  } else {
-    CLog::SetLogLevel(LOG_LEVEL_NONE);
-  }
+  // Init logging
+  if(!m_gen_log)
+    CLog::Init(LOGNONE, m_gen_log);
+  else if(strcasecmp(m_gen_log, "stdout") == 0)
+    CLog::Init(LOGWARNING, m_gen_log);
+  else
+    CLog::Init(LOGDEBUG, m_gen_log);
+  free(m_gen_log);
 
   // start the clock
   m_av_clock = new OMXClock();

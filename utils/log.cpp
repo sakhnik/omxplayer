@@ -21,23 +21,23 @@
 
 #include <time.h>
 #include <sys/time.h>
-#include <sys/stat.h>
+#include <cstring>
 
 #include "log.h"
-#include "stdio_utf8.h"
-#include "stat_utf8.h"
 #include "utils/StdString.h"
 
-static FILE*       m_file           = NULL;
+static FILE*       m_stream         = NULL;
+static bool        m_file_is_open   = false;
 static int         m_repeatCount    = 0;
 static int         m_repeatLogLevel = -1;
 static std::string m_repeatLine;
-static int         m_logLevel       = LOG_LEVEL_NONE;
+static int         m_logLevel       = LOGNONE;
 
 static pthread_mutex_t   m_log_mutex;
 
 static char levelNames[][8] =
-{"DEBUG", "INFO", "NOTICE", "WARNING", "ERROR", "SEVERE", "FATAL", "NONE"};
+{"NONE", "FATAL", "SEVERE", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG"};
+
 
 CLog::CLog()
 {}
@@ -47,11 +47,12 @@ CLog::~CLog()
 
 void CLog::Close()
 {
-  if (m_file)
+  if (m_file_is_open)
   {
-    fclose(m_file);
-    m_file = NULL;
+    fclose(m_stream);
+    m_file_is_open = false;
   }
+  m_stream = NULL;
   m_repeatLine.clear();
   pthread_mutex_destroy(&m_log_mutex);
 }
@@ -60,13 +61,11 @@ void CLog::Log(int loglevel, const char *format, ... )
 {
   pthread_mutex_lock(&m_log_mutex);
 
-  static const char* prefixFormat = "%02.2d:%02.2d:%02.2d T:%llu %7s: ";
-#if !(defined(_DEBUG) || defined(PROFILE))
-  if (m_logLevel > LOG_LEVEL_NORMAL ||
-     (m_logLevel > LOG_LEVEL_NONE && loglevel >= LOGNOTICE))
-#endif
+  if (loglevel <= m_logLevel)
   {
-    if (!m_file)
+    static const char* prefixFormat = "%02.2d:%02.2d:%02.2d T:%llu %7s: ";
+
+    if (m_stream == NULL)
     {
       pthread_mutex_unlock(&m_log_mutex);
       return;
@@ -78,7 +77,6 @@ void CLog::Log(int loglevel, const char *format, ... )
     uint64_t stamp = now.tv_usec + now.tv_sec * 1000000;
     CStdString strPrefix, strData;
 
-    strData.reserve(16384);
     va_list va;
     va_start(va, format);
     strData.FormatV(format,va);
@@ -94,11 +92,11 @@ void CLog::Log(int loglevel, const char *format, ... )
     {
       CStdString strData2;
       strPrefix.Format(prefixFormat, time->tm_hour, time->tm_min, time->tm_sec, stamp, levelNames[m_repeatLogLevel]);
-
       strData2.Format("Previous line repeats %d times.\n", m_repeatCount);
-      fputs(strPrefix.c_str(), m_file);
-      fputs(strData2.c_str(), m_file);
-      OutputDebugString(strData2);
+
+      fputs(strPrefix.c_str(), m_stream);
+      fputs(strData2.c_str(), m_stream);
+
       m_repeatCount = 0;
     }
     
@@ -119,8 +117,6 @@ void CLog::Log(int loglevel, const char *format, ... )
       pthread_mutex_unlock(&m_log_mutex);
       return;
     }
-    
-    OutputDebugString(strData);
 
     /* fixup newline alignment, number of spaces should equal prefix length */
     strData.Replace("\n", "\n                                            ");
@@ -128,50 +124,45 @@ void CLog::Log(int loglevel, const char *format, ... )
 
     strPrefix.Format(prefixFormat, time->tm_hour, time->tm_min, time->tm_sec, stamp, levelNames[loglevel]);
 
-    fputs(strPrefix.c_str(), m_file);
-    fputs(strData.c_str(), m_file);
-    //fputs(strPrefix.c_str(), stdout);
-    //fputs(strData.c_str(), stdout);
-    fflush(m_file);
+    fputs(strPrefix.c_str(), m_stream);
+    fputs(strData.c_str(), m_stream);
+    fflush(m_stream);
   }
 
   pthread_mutex_unlock(&m_log_mutex);
 }
 
-bool CLog::Init(const char* path)
+bool CLog::Init(int level, const char* path)
 {
   pthread_mutex_init(&m_log_mutex, NULL);
-  if (m_logLevel > LOG_LEVEL_NONE) { 
-  if (!m_file)
+
+  m_logLevel = level;
+
+  if(m_logLevel == LOGNONE) return false;
+
+  if(strcasecmp(path, "stdout") == 0)
   {
-    CStdString strLogFile, strLogFileOld;
-
-    strLogFile.Format("%s/omxplayer.log", path);
-    strLogFileOld.Format("%s/omxplayer.old.log", path);
-
-    struct stat info;
-    if (stat(strLogFileOld.c_str(),&info) == 0 &&
-        remove(strLogFileOld.c_str()) != 0)
-      return false;
-    if (stat(strLogFile.c_str(),&info) == 0 &&
-        rename(strLogFile.c_str(),strLogFileOld.c_str()) != 0)
-      return false;
-
-    m_file = fopen(strLogFile.c_str(),"wb");
+    m_file_is_open = false;
+    m_stream = stdout;
   }
-
-  if (m_file)
+  else if(strcasecmp(path, "stderr") == 0)
   {
-    unsigned char BOM[3] = {0xEF, 0xBB, 0xBF};
-    fwrite(BOM, sizeof(BOM), 1, m_file);
+    m_file_is_open = false;
+    m_stream = stderr;
   }
+  else
+  {
+    m_stream = fopen(path, "w");
+    m_file_is_open = m_stream != NULL;
   }
-  return m_file != NULL;
+
+  return m_stream != NULL;
 }
 
 void CLog::MemDump(char *pData, int length)
 {
-  if (m_logLevel > LOG_LEVEL_NONE) { 
+  if (m_logLevel != LOGDEBUG || m_stream == NULL) return;
+
   Log(LOGDEBUG, "MEM_DUMP: Dumping from %p", pData);
   for (int i = 0; i < length; i+=16)
   {
@@ -199,29 +190,6 @@ void CLog::MemDump(char *pData, int length)
         strLine += '.';
       alpha++;
     }
-    Log(LOGDEBUG, "%s", strLine.c_str());
+    Log(LOGDEBUG, strLine.c_str());
   }
-  }
-}
-
-void CLog::SetLogLevel(int level)
-{
-  if(m_logLevel > LOG_LEVEL_NONE)
-    CLog::Log(LOGNOTICE, "Log level changed to %d", m_logLevel);
-  m_logLevel = level;
-}
-
-int CLog::GetLogLevel()
-{
-  return m_logLevel;
-}
-
-void CLog::OutputDebugString(const std::string& line)
-{
-#if defined(_DEBUG) || defined(PROFILE)
-if(m_logLevel > LOG_LEVEL_NONE) {
-  ::OutputDebugString(line.c_str());
-  ::OutputDebugString("\n");
-}
-#endif
 }

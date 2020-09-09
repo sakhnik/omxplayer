@@ -85,7 +85,8 @@ Usage: omxplayer [OPTIONS] [FILE]
     -z  --nohdmiclocksync       Do not adjust display refresh rate to match video
     -t  --sid index             Show subtitle with index, index can be language code or index number
     -r  --refresh               Adjust framerate/resolution to video
-    -g  --genlog                Generate log file
+    -g  --genlog=logfile        Generate log file. Setting logfile to stdout rreduces log level from
+                                debug to warn
     -l  --pos n                 Start position (hh:mm:ss)
         --track n               Play a DVD track (natural number, default 1)
     -b  --blank[=0xAARRGGBB]    Set the video background color to black (or optional ARGB value)
