@@ -326,7 +326,7 @@ void SubtitleRenderer::make_subtitle_image(Subtitle &sub)
 	unsigned char *p;
 
 	// Subtitles which exceed dimensions are ignored
-	if(sub.rect.x + sub.rect.width  > dvdSubLayer->getSourceWidth() || sub.rect.y + sub.rect.height  > dvdSubLayer->getSourceHeight())
+	if(sub.image.rect.x + sub.image.rect.width  > dvdSubLayer->getSourceWidth() || sub.image.rect.y + sub.image.rect.height  > dvdSubLayer->getSourceHeight())
 	  return;
 
 	p = other_image_data = (unsigned char *)malloc(dvdSubLayer->getSourceWidth() * dvdSubLayer->getSourceHeight());
@@ -343,15 +343,15 @@ void SubtitleRenderer::make_subtitle_image(Subtitle &sub)
 		p += len;
 	};
 
-	int right_padding  = dvdSubLayer->getSourceWidth()  - sub.rect.width  - sub.rect.x;
-	int bottom_padding = dvdSubLayer->getSourceHeight() - sub.rect.height - sub.rect.y;
+	int right_padding  = dvdSubLayer->getSourceWidth()  - sub.image.rect.width  - sub.image.rect.x;
+	int bottom_padding = dvdSubLayer->getSourceHeight() - sub.image.rect.height - sub.image.rect.y;
 
 	// blanks char at top
-	mem_set(sub.rect.y * dvdSubLayer->getSourceWidth());
+	mem_set(sub.image.rect.y * dvdSubLayer->getSourceWidth());
 
-	for(int j = 0; j < sub.rect.height; j++) {
-		mem_set(sub.rect.x);
-		mem_copy(sub.image_data.data() + (j * sub.rect.width), sub.rect.width);
+	for(int j = 0; j < sub.image.rect.height; j++) {
+		mem_set(sub.image.rect.x);
+		mem_copy(sub.image.data.data() + (j * sub.image.rect.width), sub.image.rect.width);
 		mem_set(right_padding);
 	}
 

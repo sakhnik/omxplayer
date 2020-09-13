@@ -40,6 +40,7 @@ SRC=	linux/XMemUtils.cpp \
 		RecentFileStore.cpp \
 		RecentDVDStore.cpp \
 		OMXDvdPlayer.cpp \
+		Subtitle.cpp \
 
 OBJS+=$(filter %.o,$(SRC:.cpp=.o))
 

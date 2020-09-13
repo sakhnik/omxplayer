@@ -482,8 +482,8 @@ bool OMXPlayerSubtitles::GetImageData(OMXPacket *pkt, Subtitle &sub)
   // Fix time
   sub.stop = sub.start + (s.end_display_time - s.start_display_time);
 
-  sub.image_data.assign(s.rects[0]->pict.data[0], s.rects[0]->pict.linesize[0] * s.rects[0]->h);
-  sub.rect = {s.rects[0]->x, s.rects[0]->y, s.rects[0]->w, s.rects[0]->h};
+  sub.image.data.assign(s.rects[0]->pict.data[0], s.rects[0]->pict.linesize[0] * s.rects[0]->h);
+  sub.image.rect = {s.rects[0]->x, s.rects[0]->y, s.rects[0]->w, s.rects[0]->h};
 
   return true;
 }
