@@ -60,7 +60,7 @@ bool OMXPlayerSubtitles::Init(int display,
                               OMXClock* clock) BOOST_NOEXCEPT
 {
   m_visible = true;
-  m_use_external_subtitles = true;
+  m_use_external_subtitles = false;
   m_active_index = 0;
   m_delay = 0;
   m_thread_stopped.store(false, memory_order_relaxed);
@@ -84,9 +84,12 @@ bool OMXPlayerSubtitles::Open(size_t stream_count,
                               vector<Subtitle>&& external_subtitles) BOOST_NOEXCEPT
 {
   m_subtitle_buffers.resize(stream_count, circular_buffer<Subtitle>(32));
-  m_external_subtitles = std::move(external_subtitles);
 
-  SendToRenderer(Message::Flush{m_external_subtitles});
+  if(external_subtitles.size() > 0)
+  {
+    SendToRenderer(Message::SendExternalSubs{std::move(external_subtitles)});
+    m_use_external_subtitles = true;
+  }
 
   return true;
 }
@@ -165,7 +168,10 @@ RenderLoop(float font_size,
                             ghost_box,
                             lines);
 
+  vector<Subtitle> external_subtitles;
   vector<Subtitle> subtitles;
+
+  bool external_subtitles_enabled = false;
 
   int prev_now{};
   size_t next_index{};
@@ -251,16 +257,32 @@ RenderLoop(float font_size,
           args.aspect_mode
         );
       },
-      [&](Message::Push&& args)
+      [&](Message::Push&& args) // Add internal subs from muxer
       {
         subtitles.push_back(std::move(args.subtitle));
       },
-      [&](Message::Flush&& args)
+      [&](Message::SendExternalSubs&& args)
+      {
+        external_subtitles = std::move(args.subtitles);
+        subtitles.swap(external_subtitles);
+        external_subtitles_enabled = true;
+        prev_now = INT_MAX;
+      },
+      [&](Message::ToggleExternalSubs&& args)
+      {
+        if(external_subtitles_enabled != args.enable_subs)
+        {
+          subtitles.swap(external_subtitles);
+          external_subtitles_enabled = args.enable_subs;
+        }
+        prev_now = INT_MAX;
+      },
+      [&](Message::Flush&& args) // Sets or clears internal subs
       {
         subtitles = std::move(args.subtitles);
         prev_now = INT_MAX;
       },
-      [&](Message::Touch&&)
+      [&](Message::Touch&&) // External subs
       {
       },
       [&](Message::SetPaused&& args)
@@ -276,7 +298,7 @@ RenderLoop(float font_size,
       {
         exit = true;
       },
-      [&](Message::DisplayText&& args)
+      [&](Message::DisplayText&& args) // display osd
       {
         renderer.prepare(args.text_lines);
         renderer.show_next();
@@ -334,7 +356,7 @@ void OMXPlayerSubtitles::FlushRenderer()
 
   if(GetUseExternalSubtitles())
   {
-    SendToRenderer(Message::Flush{m_external_subtitles});
+    SendToRenderer(Message::ToggleExternalSubs{true});
   }
   else
   {
@@ -400,7 +422,11 @@ void OMXPlayerSubtitles::SetVisible(bool visible) BOOST_NOEXCEPT
     if(m_visible)
     {
       m_visible = false;
-      SendToRenderer(Message::Flush{});
+
+      if(m_use_external_subtitles)
+        SendToRenderer(Message::ToggleExternalSubs{false});
+      else
+        SendToRenderer(Message::Flush{});
     }
   }
 }

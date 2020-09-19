@@ -111,6 +111,14 @@ private:
     {
       std::vector<Subtitle> subtitles;
     };
+    struct SendExternalSubs
+    {
+      std::vector<Subtitle> subtitles;
+    };
+    struct ToggleExternalSubs
+    {
+      bool enable_subs;
+    };
     struct Push
     {
       Subtitle subtitle;
@@ -152,10 +160,11 @@ private:
   bool GetImageData(OMXPacket *pkt, Subtitle &sub);
   void FlushRenderer();
 
-  std::vector<Subtitle>                         m_external_subtitles;
   std::vector<boost::circular_buffer<Subtitle>> m_subtitle_buffers;
   Mailbox<Message::DVDSubs,
           Message::Stop,
+          Message::SendExternalSubs,
+          Message::ToggleExternalSubs,
           Message::Flush,
           Message::Push,
           Message::Touch,
