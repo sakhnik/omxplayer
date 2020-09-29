@@ -380,6 +380,12 @@ void SubtitleRenderer::hide()
 	if(dvdSubLayer) dvdSubLayer->hideElement();
 }
 
+void SubtitleRenderer::clear()
+{
+	subtitleLayer->clearImage();
+	if(dvdSubLayer) dvdSubLayer->clearImage();
+}
+
 void SubtitleRenderer::unprepare()
 {
 	if(m_prepared_from_image) {

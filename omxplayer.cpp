@@ -2022,6 +2022,8 @@ do_exit:
   if (m_stats)
     puts("");
 
+  m_player_subtitles.Clear();
+
   unsigned t = (unsigned)(m_av_clock->OMXMediaTime()*1e-6);
   auto dur = m_omx_reader.GetStreamLength() / 1000;
   printf("Stopped at: %02u:%02u:%02u\n", (t/3600), (t/60)%60, t%60);

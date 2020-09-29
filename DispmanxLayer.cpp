@@ -164,8 +164,20 @@ void DispmanxLayer::showElement()
 	m_element_is_hidden = false;
 }
 
+void DispmanxLayer::clearImage()
+{
+	int size = m_image_pitch * m_bmpRect.height;
+	void *blank = (void *)malloc(size);
+	memset(blank, 0, size);
+
+	setImageData(blank, false);
+
+	free(blank);
+}
+
+
 // copy image data to screen and make the element visible
-void DispmanxLayer::setImageData(void *image_data)
+void DispmanxLayer::setImageData(void *image_data, bool show)
 {
 	// the palette param is ignored
 	int result = vc_dispmanx_resource_write_data(m_resource,
@@ -177,7 +189,7 @@ void DispmanxLayer::setImageData(void *image_data)
 
 	assert(result == 0);
 
-	showElement();
+	if(show) showElement();
 }
 
 const int& DispmanxLayer::getSourceWidth()

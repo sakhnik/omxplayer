@@ -307,6 +307,10 @@ RenderLoop(float font_size,
         osd_stop = chrono::steady_clock::now() +
                    chrono::milliseconds(args.duration);
         prev_now = INT_MAX;
+      },
+      [&](Message::Clear&&)
+      {
+        renderer.clear();
       });
 
     if(exit) break;
@@ -405,6 +409,11 @@ void OMXPlayerSubtitles::SetDelay(int value) BOOST_NOEXCEPT
 {
   m_delay = value;
   SendToRenderer(Message::SetDelay{value});
+}
+
+void OMXPlayerSubtitles::Clear() BOOST_NOEXCEPT
+{
+  SendToRenderer(Message::Clear{});
 }
 
 void OMXPlayerSubtitles::SetVisible(bool visible) BOOST_NOEXCEPT

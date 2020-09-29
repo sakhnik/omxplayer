@@ -39,7 +39,8 @@ public:
 	~DispmanxLayer();
 
 	void hideElement();
-	void setImageData(void *image_data);
+	void clearImage();
+	void setImageData(void *image_data, bool show = true);
 
 	const int& getSourceWidth();
 	const int& getSourceHeight();

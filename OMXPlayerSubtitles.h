@@ -60,6 +60,7 @@ public:
   void Flush() BOOST_NOEXCEPT;
   void Resume() BOOST_NOEXCEPT;
   void Pause() BOOST_NOEXCEPT;
+  void Clear() BOOST_NOEXCEPT;
 
   void SetVisible(bool visible) BOOST_NOEXCEPT;
 
@@ -137,6 +138,7 @@ private:
       std::vector<std::string> text_lines;
       int duration;
     };
+    struct Clear {};
   };
 
   template <typename T>
@@ -170,7 +172,8 @@ private:
           Message::Touch,
           Message::SetPaused,
           Message::SetDelay,
-          Message::DisplayText>                 m_mailbox;
+          Message::DisplayText,
+          Message::Clear>                       m_mailbox;
   bool                                          m_visible;
   bool                                          m_use_external_subtitles;
   size_t                                        m_active_index;

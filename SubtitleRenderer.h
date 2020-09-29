@@ -50,6 +50,7 @@ class SubtitleRenderer {
 		void show_next();
 		void hide();
 		void unprepare();
+		void clear();
 
 	private:
 		DispmanxLayer *subtitleLayer;
