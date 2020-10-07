@@ -22,7 +22,6 @@ previous file finished.
 directory with links to 20 most recently played files.
 
 * **Experimental DVD support**: OMXPlayer can play iso/dmg DVD files as well DVD block devices.
-At the moment seeking can be a little glitchy and subtitles are not supported.
 
 ## DOWNLOADING
 
